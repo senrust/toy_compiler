@@ -1,0 +1,28 @@
+[tasks.build]
+command = "cargo"
+args = ["build"]
+
+[tasks.run]
+command = "cargo"
+args = ["run"]
+
+[tasks.assemble]
+command = "cc"
+args = ["-o", "a.out", "tmp.s"]
+
+[tasks.test]
+command = "cargo"
+args = ["test"]
+
+[tasks.clean]
+command = "rm"
+args = ["-r", "a.out", "tmp.s"]
+
+[tasks.flow]
+dependencies = [
+    "build",
+    "run",
+    "assemble",
+    "test",
+    "clean",
+]
