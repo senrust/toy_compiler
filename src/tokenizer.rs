@@ -46,10 +46,6 @@ impl TokenList {
 }
 
 pub fn text_tokenizer(text: &str) -> TokenList {
-    let a = text.chars();
-    for ch in a {
-        print!("ch is {}", ch);
-    }
     let mut char_queue = text.chars().collect::<VecDeque<char>>();
     let mut tokenlist = TokenList::new();
     let mut current_token = &mut tokenlist.head;
@@ -78,6 +74,8 @@ pub fn text_tokenizer(text: &str) -> TokenList {
                     if digit.is_digit(10) {
                         let next_digit = char_queue.pop_front().unwrap();
                         num = num*10 + next_digit.to_digit(10).unwrap() as i32;
+                    } else {
+                        break;
                     }
                 } else {
                     break;
