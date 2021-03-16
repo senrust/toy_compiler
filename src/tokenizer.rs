@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, iter::FromIterator};
 
 #[derive(Debug,PartialEq,Eq)] 
 pub enum TokenKind {
@@ -11,13 +11,15 @@ pub enum TokenKind {
 #[derive(Debug)]
 pub struct Token {
     pub token_kind: TokenKind,
+    pub token_pos: i32,
     next: Option<Box<Token>>,
 }
 
 impl Token {
-    fn new() -> Token {
+    fn new(token_pos: i32) -> Token {
         Token{
             token_kind: TokenKind::InvalidToken,
+            token_pos,
             next: None,
         }
     }
@@ -37,26 +39,48 @@ impl TokenList {
 
     pub fn pop_head(&mut self) -> Option<Box<Token>> {
         if let Some(mut token) = self.head.take() {
-            self.head= token.next.take();
+            self.head = token.next.take();
             return Some(token);
         } else {
             return None;
         }
     }
+
+    pub fn is_empty(&mut self) -> bool {
+        self.head.is_none()
+    }
 }
 
+impl Drop for TokenList {
+    fn drop(&mut self) {
+        let mut token = self.head.take();
+        loop {
+            match token {
+                Some(mut valid_token) => {
+                    let next_token = valid_token.next.take();
+                    token = next_token;
+                },
+                None => {break;},
+            }
+        }
+    }
+}
+
+// 入力テキストのトークン連結リストを作成する
 pub fn text_tokenizer(text: &str) -> TokenList {
-    let mut char_queue = text.chars().collect::<VecDeque<char>>();
+    let mut char_queue = VecDeque::from_iter(text.chars());
     let mut tokenlist = TokenList::new();
     let mut current_token = &mut tokenlist.head;
+    let mut token_pos = -1;
     
     while !char_queue.is_empty() {
         let ch = char_queue.pop_front().unwrap();
+        token_pos += 1;
         if ch == ' ' {
             continue;
         }
 
-        let mut new_token = Token::new();
+        let mut new_token = Token::new(token_pos);
 
         if ch == '+' {
             new_token.token_kind = TokenKind::Add;
@@ -66,6 +90,7 @@ pub fn text_tokenizer(text: &str) -> TokenList {
             new_token.token_kind = TokenKind::Sub;
         }
         
+        // 数字処理の場合
         if ch.is_digit(10) {
             let mut num: i32 = ch.to_digit(10).unwrap() as i32;
             loop {
@@ -83,7 +108,7 @@ pub fn text_tokenizer(text: &str) -> TokenList {
             }
             new_token.token_kind = TokenKind::Number(num);
         }
-        
+       
         match current_token {
             Some(token) => {
                 token.next = Some(Box::new(new_token));
