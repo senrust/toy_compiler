@@ -1,6 +1,8 @@
 use std::fs;
 use std::io::{BufWriter, Write};
 
+mod tokenizer;
+
 fn write_header<T: Write>(buf:&mut T) {
     writeln!(buf, ".intel_syntax noprefix").unwrap();
     writeln!(buf, ".globl main").unwrap();
@@ -22,10 +24,29 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use std::process::Command;
+    use super::tokenizer::*;
+
+    #[test]
+    fn token_test() {
+        let input_text = "18 + 21 - 8";
+        let mut tokens = text_tokenizer(input_text);
+        let num = tokens.pop_head().unwrap();
+        assert_eq!(num.token_kind, TokenKind::Number(10));
+        let num = tokens.pop_head().unwrap();
+        assert_eq!(num.token_kind, TokenKind::Add);
+        let num = tokens.pop_head().unwrap();
+        assert_eq!(num.token_kind, TokenKind::Number(20));
+        let num = tokens.pop_head().unwrap();
+        assert_eq!(num.token_kind, TokenKind::Sub);
+        let num = tokens.pop_head().unwrap();
+        assert_eq!(num.token_kind, TokenKind::Number(8));
+        let num = tokens.pop_head();
+        assert!(num.is_none());
+    }
 
   #[test]
   fn binary_test() {
-    let status = Command::new("sh")
+        let status = Command::new("sh")
         .arg("-c")
         .arg("./a.out")
         .status()
