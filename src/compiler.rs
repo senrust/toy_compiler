@@ -58,6 +58,7 @@ pub fn compile_operation(token_list: &mut TokenList) -> String {
         OperationKind::Sub => {
             instruction += "sub rax,";
         }
+        _ => {},
     }
     let num = expect_number(token_list);
     instruction = format!("{} {}", instruction, num);

@@ -5,12 +5,21 @@ use std::{collections::VecDeque, iter::FromIterator};
 pub enum OperationKind {
     Add,
     Sub,
+    Mul,
+    Div,    
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParenthesesKind {
+    LeftParentheses,
+    RightParentheses,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
     Number(i32),
     Operation(OperationKind),
+    Parentheses(ParenthesesKind),
     InvalidToken,
 }
 
@@ -45,6 +54,10 @@ impl TokenList {
         }
     }
 
+    pub fn peek_head(&self) -> &Option<Box<Token>> {
+        &self.head
+    }
+
     pub fn pop_head(&mut self) -> Option<Box<Token>> {
         if let Some(mut token) = self.head.take() {
             self.head = token.next.take();
@@ -56,6 +69,64 @@ impl TokenList {
 
     pub fn is_empty(&mut self) -> bool {
         self.head.is_none()
+    }
+
+    pub fn consume_operation(&mut self, op: OperationKind) -> bool {
+        match self.peek_head() {
+            Some(token) => {
+                if token.token_kind == TokenKind::Operation(op) {
+                    self.pop_head();
+                    return true;
+                } else {
+                    return false;
+                }
+            },
+            None => {
+                return false;
+            }
+        }
+    }
+
+    pub fn comsume_parentheses(&mut self, parenthese: ParenthesesKind)  -> bool{
+        match self.peek_head() {
+            Some(token) => {
+                if token.token_kind == TokenKind::Parentheses(parenthese) {
+                    self.pop_head();
+                    return true;
+                } else {
+                    return false;
+                }
+            },
+            None => {
+                return false;
+            }
+        }
+    }
+
+    pub fn expect_number(&mut self) -> i32 {
+        let token = self.pop_head();
+        match token {
+            Some(valid_token) => {
+                match valid_token.token_kind {
+                    TokenKind::Number(num) => {
+                        return num;
+                    }
+                    _ => {
+                        error_exit(
+                            "expect number token",
+                            valid_token.token_pos,
+                            &self.raw_text,
+                        );
+                    }
+                }
+            },
+            // Noneの場合はトークン終了を意味する
+            None => {
+                // テキスト終端の1つ後ろに要求エラーを立てる
+                let tail_pos = self.raw_text.chars().count();
+                error_exit("expect number token", tail_pos, &self.raw_text);
+            }
+        }
     }
 }
 
@@ -98,6 +169,22 @@ pub fn text_tokenizer(text: &str) -> TokenList {
 
         if ch == '-' {
             new_token.token_kind = TokenKind::Operation(OperationKind::Sub);
+        }
+
+        if ch == '*' {
+            new_token.token_kind = TokenKind::Operation(OperationKind::Mul);
+        }
+
+        if ch == '/' {
+            new_token.token_kind = TokenKind::Operation(OperationKind::Div);
+        }
+
+        if ch == '(' {
+            new_token.token_kind = TokenKind::Parentheses(ParenthesesKind::LeftParentheses);
+        }
+
+        if ch == ')' {
+            new_token.token_kind = TokenKind::Parentheses(ParenthesesKind::RightParentheses);
         }
 
         if ch.is_digit(10) {

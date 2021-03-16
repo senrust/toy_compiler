@@ -4,7 +4,7 @@ args = ["build"]
 
 [tasks.run]
 command = "cargo"
-args = ["run", "5 + 20 - 4"]
+args = ["run", "10 * 2 + 4 * (10 -2)"]
 
 [tasks.assemble]
 command = "cc"

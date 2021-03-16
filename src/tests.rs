@@ -2,6 +2,7 @@
 mod tests {
     use crate::compiler::{compile_operation, expect_number, expect_operation};
     use crate::tokenizer::{text_tokenizer, OperationKind};
+    use crate::ast::{AST};
     use std::process::Command;
 
     #[test]
@@ -36,4 +37,5 @@ mod tests {
         assert_eq!(compile_operation(&mut token_list), "    sub rax, 8");
         assert!(token_list.is_empty());
     }
+
 }
