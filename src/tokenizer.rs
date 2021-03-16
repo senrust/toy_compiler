@@ -86,17 +86,20 @@ pub fn text_tokenizer(text: &str) -> TokenList {
         let mut new_token = Token::new(token_pos);
         token_pos += 1;
         let ch = char_queue.pop_front().unwrap();
+
         if ch == ' ' {
             continue;
         }
 
-
-
         if ch == '+' {
             new_token.token_kind = TokenKind::Operation(OperationKind::Add);
-        } else if ch == '-' {
+        } 
+        
+        if ch == '-' {
             new_token.token_kind = TokenKind::Operation(OperationKind::Sub);
-        } else if ch.is_digit(10) {
+        }
+        
+        if ch.is_digit(10) {
             let mut num: i32 = ch.to_digit(10).unwrap() as i32;
             loop {
                 let next = char_queue.front();
@@ -113,9 +116,12 @@ pub fn text_tokenizer(text: &str) -> TokenList {
                 }
             }
             new_token.token_kind = TokenKind::Number(num);
-        } else {
-            error_exit("unsupported token", token_pos, &text)
         }
+
+        if new_token.token_kind == TokenKind::InvalidToken {
+            error_exit("unsupported token", new_token.token_pos, &text)
+        }
+        
        
         match current_token {
             Some(token) => {
