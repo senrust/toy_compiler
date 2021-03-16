@@ -1,22 +1,29 @@
 use std::{collections::VecDeque, iter::FromIterator};
 
+use super::compiler::*;
+
+#[derive(Debug,PartialEq,Eq)] 
+pub enum OperationKind {
+    Add,
+    Sub
+}
+
 #[derive(Debug,PartialEq,Eq)] 
 pub enum TokenKind {
     Number(i32),
-    Add,
-    Sub,
+    Operation(OperationKind),
     InvalidToken,
 }
 
 #[derive(Debug)]
 pub struct Token {
     pub token_kind: TokenKind,
-    pub token_pos: i32,
+    pub token_pos: usize,
     next: Option<Box<Token>>,
 }
 
 impl Token {
-    fn new(token_pos: i32) -> Token {
+    fn new(token_pos: usize) -> Token {
         Token{
             token_kind: TokenKind::InvalidToken,
             token_pos,
@@ -28,11 +35,13 @@ impl Token {
 #[derive(Debug)]
 pub struct TokenList {
     pub head: Option<Box<Token>>,
+    pub raw_text: String,
 }
 
 impl TokenList {
-    fn new() -> TokenList {
+    fn new(text: &str) -> TokenList {
         TokenList {
+            raw_text: String::from(text),
             head: None,
         }
     }
@@ -69,29 +78,25 @@ impl Drop for TokenList {
 // 入力テキストのトークン連結リストを作成する
 pub fn text_tokenizer(text: &str) -> TokenList {
     let mut char_queue = VecDeque::from_iter(text.chars());
-    let mut tokenlist = TokenList::new();
+    let mut tokenlist = TokenList::new(text);
     let mut current_token = &mut tokenlist.head;
-    let mut token_pos = -1;
+    let mut token_pos = 0;
     
     while !char_queue.is_empty() {
-        let ch = char_queue.pop_front().unwrap();
+        let mut new_token = Token::new(token_pos);
         token_pos += 1;
+        let ch = char_queue.pop_front().unwrap();
         if ch == ' ' {
             continue;
         }
 
-        let mut new_token = Token::new(token_pos);
+
 
         if ch == '+' {
-            new_token.token_kind = TokenKind::Add;
-        }
-
-        if ch == '-' {
-            new_token.token_kind = TokenKind::Sub;
-        }
-        
-        // 数字処理の場合
-        if ch.is_digit(10) {
+            new_token.token_kind = TokenKind::Operation(OperationKind::Add);
+        } else if ch == '-' {
+            new_token.token_kind = TokenKind::Operation(OperationKind::Sub);
+        } else if ch.is_digit(10) {
             let mut num: i32 = ch.to_digit(10).unwrap() as i32;
             loop {
                 let next = char_queue.front();
@@ -99,6 +104,7 @@ pub fn text_tokenizer(text: &str) -> TokenList {
                     if digit.is_digit(10) {
                         let next_digit = char_queue.pop_front().unwrap();
                         num = num*10 + next_digit.to_digit(10).unwrap() as i32;
+                        token_pos += 1; 
                     } else {
                         break;
                     }
@@ -107,6 +113,8 @@ pub fn text_tokenizer(text: &str) -> TokenList {
                 }
             }
             new_token.token_kind = TokenKind::Number(num);
+        } else {
+            error_exit("unsupported token", token_pos, &text)
         }
        
         match current_token {
