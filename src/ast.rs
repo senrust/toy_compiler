@@ -38,7 +38,8 @@ impl ASTNode {
 
 // AST 生成規則
 // expr    = mul ("+" mul | "-" mul)*
-// mul     = primary ("*" primary | "/" primary)*
+// mul     = unary ("*" unary | "/" unary)*
+// unary   = ("+" | "-")? primary
 // primary = num | "(" expr ")"
 type Link = Option<Box<ASTNode>>;
 
@@ -80,22 +81,35 @@ impl AST {
     }
 
     fn mul(token_list: &mut TokenList) -> Link {
-        let mut mul_node = AST::primary(token_list);
+        let mut mul_node = AST::urany(token_list);
 
         loop {
             if token_list.consume_operation(OperationKind::Mul) {
                 let mut new_node = ASTNode::new_operand_node(OperationKind::Mul);
-                new_node.add_neighbor_node(mul_node.take(), AST::primary(token_list));
+                new_node.add_neighbor_node(mul_node.take(), AST::urany(token_list));
                 mul_node = Some(Box::new(new_node));
             } else if token_list.consume_operation(OperationKind::Div) {
                 let mut new_node = ASTNode::new_operand_node(OperationKind::Div);
-                new_node.add_neighbor_node(mul_node.take(), AST::primary(token_list));
+                new_node.add_neighbor_node(mul_node.take(), AST::urany(token_list));
                 mul_node = Some(Box::new(new_node));
             } else {
                 break;
             }
         }
         mul_node
+    }
+
+    fn urany(token_list: &mut TokenList) -> Link {
+        if token_list.consume_operation(OperationKind::Add) {
+            return AST::primary(token_list); 
+        }
+        if token_list.consume_operation(OperationKind::Sub) {
+            let mut new_node = ASTNode::new_operand_node(OperationKind::Sub);
+            let zoro_node = ASTNode::new_num_node(0);
+            new_node.add_neighbor_node(Some(Box::new(zoro_node)), AST::primary(token_list));
+            return Some(Box::new(new_node));
+        } 
+        return AST::primary(token_list);
     }
 
     fn primary(token_list: &mut TokenList) ->  Link {
