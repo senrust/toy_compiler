@@ -37,12 +37,15 @@ impl ASTNode {
 }
 
 // AST 生成規則
-// expr    = mul ("+" mul | "-" mul)*
-// mul     = unary ("*" unary | "/" unary)*
-// unary   = ("+" | "-")? primary
-// primary = num | "(" expr ")"
-type Link = Option<Box<ASTNode>>;
+// expr       = equality
+// equality   = relational ("==" relational | "!=" relational)*
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+// add        = mul ("+" mul | "-" mul)*
+// mul        = unary ("*" unary | "/" unary)*
+// unary      = ("+" | "-")? primary
+// primary    = num | "(" expr ")"
 
+type Link = Option<Box<ASTNode>>;
 pub struct AST {
     pub root: Link,
 }
@@ -62,6 +65,57 @@ impl AST {
     }
 
     fn expr(token_list: &mut TokenList) ->  Link {
+        AST::equality(token_list)
+    }
+
+    fn equality(token_list: &mut TokenList) ->  Link {
+        let mut equality_node = AST::relational(token_list);
+
+        loop {
+            if token_list.consume_operation(OperationKind::Eq) {
+                let mut new_node = ASTNode::new_operand_node(OperationKind::Eq);
+                new_node.add_neighbor_node(equality_node.take(), AST::relational(token_list));
+                equality_node = Some(Box::new(new_node));
+            } else if token_list.consume_operation(OperationKind::Not) {
+                let mut new_node = ASTNode::new_operand_node(OperationKind::Not);
+                new_node.add_neighbor_node(equality_node.take(), AST::relational(token_list));
+                equality_node = Some(Box::new(new_node));
+            } else {
+                break;
+            }
+        }
+        equality_node
+    }
+
+    fn relational(token_list: &mut TokenList) ->  Link {
+        let mut relational_node = AST::add(token_list);
+
+        loop {
+            // Gt,Geは左辺と右辺を逆転させてLt, Leで評価する
+            if token_list.consume_operation(OperationKind::Gt) {
+                let mut new_node = ASTNode::new_operand_node(OperationKind::Lt);
+                new_node.add_neighbor_node(AST::add(token_list), relational_node.take());
+                relational_node = Some(Box::new(new_node));
+            } else if token_list.consume_operation(OperationKind::Ge) {
+                let mut new_node = ASTNode::new_operand_node(OperationKind::Le);
+                new_node.add_neighbor_node(AST::add(token_list), relational_node.take());
+                relational_node = Some(Box::new(new_node));
+            } else if token_list.consume_operation(OperationKind::Lt) {
+                let mut new_node = ASTNode::new_operand_node(OperationKind::Lt);
+                new_node.add_neighbor_node(relational_node.take(), AST::add(token_list));
+                relational_node = Some(Box::new(new_node));
+            } else if token_list.consume_operation(OperationKind::Le) {
+                let mut new_node = ASTNode::new_operand_node(OperationKind::Le);
+                new_node.add_neighbor_node(relational_node.take(), AST::add(token_list));
+                relational_node = Some(Box::new(new_node));
+            } else {
+                break;
+            }
+        }
+        relational_node
+    }
+
+    fn add(token_list: &mut TokenList) ->  Link {
         let mut expr_node = AST::mul(token_list);
 
         loop {
