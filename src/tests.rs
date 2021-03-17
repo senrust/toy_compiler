@@ -14,7 +14,7 @@ mod tests {
             .expect("failed to asemble binary");
     }
 
-    fn compare_output(correct_result: i32){
+    fn compare_output() -> i32{
         let status = Command::new("sh")
             .arg("-c")
             .arg("./a.out")
@@ -22,7 +22,7 @@ mod tests {
             .expect("failed to execute binary")
             .code()
             .unwrap();
-        assert_eq!(status, correct_result);
+        status
     }
 
     #[test]
@@ -33,9 +33,16 @@ mod tests {
             let test_vec: Vec<&str> = test_set.split(",").collect();
             let correct_output: i32 = test_vec[0].parse().unwrap();
             let input_text: &str = test_vec[1].trim();
+            println!("assert {} = {}", test_vec[0], test_vec[1]);
             output_asembly(input_text);
             make_binary_from_asm();
-            compare_output(correct_output);
+            let result = compare_output();
+            if correct_output == result {
+                println!("suceeded!");
+            } else {
+                println!("test failed! expected {} but {} retuend", correct_output, result);
+                panic!();
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 [tasks.test]
 command = "cargo"
-args = ["test"]
+args = ["test", "--", "--nocapture"]
 
 [tasks.clean]
 command = "rm"
