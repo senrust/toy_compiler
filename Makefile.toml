@@ -1,15 +1,3 @@
-[tasks.build]
-command = "cargo"
-args = ["build"]
-
-[tasks.run]
-command = "cargo"
-args = ["run", "2 * (3 + 4) + 4*5"]
-
-[tasks.assemble]
-command = "cc"
-args = ["-o", "a.out", "tmp.s"]
-
 [tasks.test]
 command = "cargo"
 args = ["test"]
@@ -18,17 +6,8 @@ args = ["test"]
 command = "rm"
 args = ["-r", "a.out", "tmp.s"]
 
-[tasks.output]
-dependencies = [
-    "build",
-    "run",
-]
-
 [tasks.flow]
 dependencies = [
-    "build",
-    "run",
-    "assemble",
     "test",
     "clean",
 ]
