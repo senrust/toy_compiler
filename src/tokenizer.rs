@@ -3,6 +3,12 @@ use std::{collections::VecDeque, iter::FromIterator};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum OperationKind {
+    Gt,
+    Ge,
+    Eq,
+    Not,
+    Le,
+    Lt,
     Add,
     Sub,
     Mul,
@@ -147,65 +153,89 @@ impl Drop for TokenList {
     }
 }
 
+fn pop_digit(char_queue: &mut VecDeque<char>) -> i32 {
+    let mut num = char_queue.pop_front().unwrap().to_digit(10).unwrap() as i32;
+    loop {
+        let next = char_queue.front();
+        if let Some(next_ch) = next {
+            if next_ch.is_digit(10) {
+                let next_digit = char_queue.pop_front().unwrap().to_digit(10).unwrap() as i32;
+                num = num * 10 + next_digit;
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    num
+}
+
+fn pop_ascii(char_queue: &mut VecDeque<char>) -> TokenKind {
+    let ch = char_queue.pop_front().unwrap();
+    let mut op_string = ch.to_string();
+    // <、<=、>、>=、==、!= に対応するため, 次が=ならばそれも取り出す
+    if let Some(next_ch_ref) = char_queue.front() {
+        if *next_ch_ref == '=' {
+            let next_ch = char_queue.pop_front().unwrap();
+            op_string.push(next_ch);
+        }
+    }
+
+    if op_string == ">" {
+        TokenKind::Operation(OperationKind::Gt)
+    } else if op_string == ">=" { 
+        TokenKind::Operation(OperationKind::Ge)
+    } else if op_string == "==" { 
+        TokenKind::Operation(OperationKind::Eq)
+    } else if op_string == "!=" { 
+        TokenKind::Operation(OperationKind::Not)
+    } else if op_string == "<=" { 
+        TokenKind::Operation(OperationKind::Le)
+    } else if op_string == "<" { 
+        TokenKind::Operation(OperationKind::Lt)
+    } else if op_string == "+" { 
+        TokenKind::Operation(OperationKind::Add)
+    } else if op_string == "-" { 
+        TokenKind::Operation(OperationKind::Sub)
+    } else if op_string == "*" { 
+        TokenKind::Operation(OperationKind::Mul)
+    } else if op_string == "/" { 
+        TokenKind::Operation(OperationKind::Div)
+    } else if op_string == "(" { 
+        TokenKind::Parentheses(ParenthesesKind::LeftParentheses)
+    } else if op_string == ")" { 
+        TokenKind::Parentheses(ParenthesesKind::RightParentheses)
+    } else {
+        TokenKind::InvalidToken
+    }
+}
+
 // 入力テキストのトークン連結リストを作成する
 pub fn text_tokenizer(text: &str) -> TokenList {
     // veqdeque よりはpeekableなイテレータで良いかも
     let mut char_queue = VecDeque::from_iter(text.chars());
     let mut tokenlist = TokenList::new(text);
     let mut current_token = &mut tokenlist.head;
-    let mut token_pos = 0;
+    let text_len = char_queue.len();
 
     while !char_queue.is_empty() {
+        // 解析トークンの位置はテキストの長さ-未処理文字数で求まる
+        let token_pos = text_len - char_queue.len();
         let mut new_token = Token::new(token_pos);
-        token_pos += 1;
-        let ch = char_queue.pop_front().unwrap();
+        let ch = char_queue.front().unwrap();
 
-        if ch == ' ' {
+        if *ch == ' ' {
+            char_queue.pop_front();
             continue;
         }
-
-        if ch == '+' {
-            new_token.token_kind = TokenKind::Operation(OperationKind::Add);
-        }
-
-        if ch == '-' {
-            new_token.token_kind = TokenKind::Operation(OperationKind::Sub);
-        }
-
-        if ch == '*' {
-            new_token.token_kind = TokenKind::Operation(OperationKind::Mul);
-        }
-
-        if ch == '/' {
-            new_token.token_kind = TokenKind::Operation(OperationKind::Div);
-        }
-
-        if ch == '(' {
-            new_token.token_kind = TokenKind::Parentheses(ParenthesesKind::LeftParentheses);
-        }
-
-        if ch == ')' {
-            new_token.token_kind = TokenKind::Parentheses(ParenthesesKind::RightParentheses);
-        }
-
+       
         if ch.is_digit(10) {
-            let mut num: i32 = ch.to_digit(10).unwrap() as i32;
-            loop {
-                let next = char_queue.front();
-                if let Some(next_ch) = next {
-                    if next_ch.is_digit(10) {
-                        let next_digit = char_queue.pop_front().unwrap().to_digit(10).unwrap() as i32;
-                        num = num * 10 + next_digit;
-                        token_pos += 1;
-                    } else {
-                        break;
-                    }
-                } else {
-                    break;
-                }
-            }
+            let num = pop_digit(&mut char_queue);
             new_token.token_kind = TokenKind::Number(num);
-        }
+        } else {
+            new_token.token_kind = pop_ascii(&mut char_queue);
+        } 
 
         if new_token.token_kind == TokenKind::InvalidToken {
             error_exit("unsupported token", new_token.token_pos, &text)
