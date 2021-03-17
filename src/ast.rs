@@ -1,28 +1,38 @@
-use super::tokenizer::{TokenList, TokenKind, OperationKind, ParenthesesKind};
-use super::compiler::{expect_operation, expect_number};
+use super::tokenizer::{TokenList, OperationKind, ParenthesesKind};
 use super::error::error_exit;
 
-pub struct Node {
-    node_kind: TokenKind,
-    left: Option<Box<Node>>,
-    right: Option<Box<Node>>,
+pub enum ASTNodeKind {
+    Operation(OperationKind),
+    Number(i32),
 }
 
-impl Node {
-    fn new_num_node(num: i32) -> Node {
-        Node {
-            node_kind: TokenKind::Number(num),
+pub struct ASTNode {
+    pub node_kind: ASTNodeKind,
+    pub left: Option<Box<ASTNode>>,
+    pub right: Option<Box<ASTNode>>,
+}
+
+impl ASTNode {
+    fn new_num_node(num: i32) -> ASTNode {
+        ASTNode {
+            node_kind: ASTNodeKind::Number(num),
             left: None,
             right: None,
         }
     }
 
-    fn new_operand_node(kind: OperationKind) -> Node {
-        Node {
-            node_kind: TokenKind::Operation(kind),
+    fn new_operand_node(kind: OperationKind) -> ASTNode {
+        ASTNode {
+            node_kind: ASTNodeKind::Operation(kind),
             left: None,
             right: None,
         }
+    }
+
+    // ASTNodeを更新
+    fn add_neighbor_node(&mut self, left: Link, right: Link) {
+        self.left = left;
+        self.right = right;
     }
 }
 
@@ -30,7 +40,7 @@ impl Node {
 // expr    = mul ("+" mul | "-" mul)*
 // mul     = primary ("*" primary | "/" primary)*
 // primary = num | "(" expr ")"
-type Link = Option<Box<Node>>;
+type Link = Option<Box<ASTNode>>;
 
 pub struct AST {
     pub root: Link,
@@ -42,6 +52,7 @@ impl AST {
         let ast_tree = AST {
             root: AST::expr(token_list),
         };
+        // トークン連想配列が空でない場合、exprでNode化できていないトークンがあるのでエラーにする
         if !token_list.is_empty() {
             let rem_token = token_list.head.take().unwrap();
             error_exit("this token is invalid", rem_token.token_pos, &token_list.raw_text);
@@ -49,23 +60,17 @@ impl AST {
         ast_tree
     }
 
-    fn upgrade_node(mut node: Node, right: Link, left: Link) -> Node {
-        node.right = right;
-        node.left = left;
-        node
-    }
-
     fn expr(token_list: &mut TokenList) ->  Link {
         let mut expr_node = AST::mul(token_list);
 
         loop {
             if token_list.consume_operation(OperationKind::Add) {
-                let new_node = Node::new_operand_node(OperationKind::Add);
-                let new_node = AST::upgrade_node(new_node, expr_node.take(), AST::mul(token_list));
+                let mut new_node = ASTNode::new_operand_node(OperationKind::Add);
+                new_node.add_neighbor_node(expr_node.take(), AST::mul(token_list));
                 expr_node = Some(Box::new(new_node));
             } else if token_list.consume_operation(OperationKind::Sub) {
-                let new_node = Node::new_operand_node(OperationKind::Sub);
-                let new_node = AST::upgrade_node(new_node, expr_node.take(), AST::mul(token_list));
+                let mut new_node = ASTNode::new_operand_node(OperationKind::Sub);
+                new_node.add_neighbor_node(expr_node.take(), AST::mul(token_list));
                 expr_node = Some(Box::new(new_node));
             } else {
                 break;
@@ -79,12 +84,12 @@ impl AST {
 
         loop {
             if token_list.consume_operation(OperationKind::Mul) {
-                let new_node = Node::new_operand_node(OperationKind::Mul);
-                let new_node = AST::upgrade_node(new_node, mul_node.take(), AST::primary(token_list));
+                let mut new_node = ASTNode::new_operand_node(OperationKind::Mul);
+                new_node.add_neighbor_node(mul_node.take(), AST::primary(token_list));
                 mul_node = Some(Box::new(new_node));
             } else if token_list.consume_operation(OperationKind::Div) {
-                let new_node = Node::new_operand_node(OperationKind::Div);
-                let new_node = AST::upgrade_node(new_node, mul_node.take(), AST::primary(token_list));
+                let mut new_node = ASTNode::new_operand_node(OperationKind::Div);
+                new_node.add_neighbor_node(mul_node.take(), AST::primary(token_list));
                 mul_node = Some(Box::new(new_node));
             } else {
                 break;
@@ -108,8 +113,7 @@ impl AST {
                 }
             }
         }
-
-        return Some(Box::new(Node::new_num_node(token_list.expect_number())));
+        return Some(Box::new(ASTNode::new_num_node(token_list.expect_number())));
     }
 
 }

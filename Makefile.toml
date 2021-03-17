@@ -4,7 +4,7 @@ args = ["build"]
 
 [tasks.run]
 command = "cargo"
-args = ["run", "10 * 2 + 4 * (10 -2)"]
+args = ["run", "2 * (3 + 4) + 4*5"]
 
 [tasks.assemble]
 command = "cc"
@@ -17,6 +17,12 @@ args = ["test"]
 [tasks.clean]
 command = "rm"
 args = ["-r", "a.out", "tmp.s"]
+
+[tasks.output]
+dependencies = [
+    "build",
+    "run",
+]
 
 [tasks.flow]
 dependencies = [

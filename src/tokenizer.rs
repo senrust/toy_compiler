@@ -149,6 +149,7 @@ impl Drop for TokenList {
 
 // 入力テキストのトークン連結リストを作成する
 pub fn text_tokenizer(text: &str) -> TokenList {
+    // veqdeque よりはpeekableなイテレータで良いかも
     let mut char_queue = VecDeque::from_iter(text.chars());
     let mut tokenlist = TokenList::new(text);
     let mut current_token = &mut tokenlist.head;
@@ -191,10 +192,10 @@ pub fn text_tokenizer(text: &str) -> TokenList {
             let mut num: i32 = ch.to_digit(10).unwrap() as i32;
             loop {
                 let next = char_queue.front();
-                if let Some(digit) = next {
-                    if digit.is_digit(10) {
-                        let next_digit = char_queue.pop_front().unwrap();
-                        num = num * 10 + next_digit.to_digit(10).unwrap() as i32;
+                if let Some(next_ch) = next {
+                    if next_ch.is_digit(10) {
+                        let next_digit = char_queue.pop_front().unwrap().to_digit(10).unwrap() as i32;
+                        num = num * 10 + next_digit;
                         token_pos += 1;
                     } else {
                         break;
