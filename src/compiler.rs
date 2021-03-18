@@ -1,5 +1,5 @@
-use crate::ast::{AST, ASTNode, ASTNodeKind, PrimaryNodeKind};
 use super::tokenizer::OperationKind;
+use crate::ast::{ASTNode, ASTNodeKind, PrimaryNodeKind, AST};
 
 fn compile_node(mut node: ASTNode, instruction_vec: &mut Vec<String>) {
     if let ASTNodeKind::Primary(PrimaryNodeKind::Number(num)) = node.node_kind {
@@ -20,41 +20,41 @@ fn compile_node(mut node: ASTNode, instruction_vec: &mut Vec<String>) {
     match node.node_kind {
         ASTNodeKind::Operation(OperationKind::Add) => {
             instruction_vec.push("    add rax, rdi".to_string());
-        },
+        }
         ASTNodeKind::Operation(OperationKind::Sub) => {
             instruction_vec.push("    sub rax, rdi".to_string());
-        },
+        }
         ASTNodeKind::Operation(OperationKind::Mul) => {
             instruction_vec.push("    imul rax, rdi".to_string());
-        },
+        }
         ASTNodeKind::Operation(OperationKind::Div) => {
             instruction_vec.push("    cqo".to_string());
             instruction_vec.push("    idiv rdi".to_string());
-        },
+        }
         ASTNodeKind::Operation(OperationKind::Eq) => {
             instruction_vec.push("    cmp rax, rdi".to_string());
             instruction_vec.push("    sete al".to_string());
             instruction_vec.push("    movzb rax, al".to_string());
-        },
+        }
         ASTNodeKind::Operation(OperationKind::Not) => {
             instruction_vec.push("    cmp rax, rdi".to_string());
             instruction_vec.push("    setne al".to_string());
             instruction_vec.push("    movzb rax, al".to_string());
-        },
+        }
         // Gt, GeはASTでは左辺値と右辺値を反転させたLt, Leとして形成される
         ASTNodeKind::Operation(OperationKind::Lt) => {
             instruction_vec.push("    cmp rax, rdi".to_string());
             instruction_vec.push("    setl al".to_string());
             instruction_vec.push("    movzb rax, al".to_string());
-        },
+        }
         ASTNodeKind::Operation(OperationKind::Le) => {
             instruction_vec.push("    cmp rax, rdi".to_string());
             instruction_vec.push("    setle al".to_string());
             instruction_vec.push("    movzb rax, al".to_string());
-        },
+        }
         // ASTNodeKind::Numberはここには来ない
-        // Gt, GeはASTでは左辺値と右辺値を反転させたLt, Leとして形成される 
-        _ => {},
+        // Gt, GeはASTでは左辺値と右辺値を反転させたLt, Leとして形成される
+        _ => {}
     }
     instruction_vec.push("    push rax".to_string());
 }
@@ -66,8 +66,8 @@ pub fn compile_ast(ast: &mut AST) -> Vec<String> {
     match ast.root.take() {
         Some(top_node) => {
             compile_node(*top_node, &mut instruction_vec);
-        },
-        None => {},
-    }   
+        }
+        None => {}
+    }
     instruction_vec
 }

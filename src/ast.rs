@@ -1,9 +1,9 @@
-use super::tokenizer::{TokenList, OperationKind, ParenthesesKind};
 use super::error::error_exit;
+use super::tokenizer::{OperationKind, ParenthesesKind, TokenList};
 
 pub enum PrimaryNodeKind {
     Number(i32),
-    Variable(char, i32),    // (variablename, offset from bsp)
+    Variable(char, i32), // (variablename, offset from bsp)
 }
 
 pub enum ASTNodeKind {
@@ -70,7 +70,6 @@ pub struct AST {
     pub root: Link,
 }
 
-
 impl AST {
     pub fn new(token_list: &mut TokenList) -> AST {
         let ast_tree = AST {
@@ -80,14 +79,14 @@ impl AST {
     }
 
     // expr  = assign
-    fn expr(token_list: &mut TokenList) ->  Link {
+    fn expr(token_list: &mut TokenList) -> Link {
         AST::assign(token_list)
     }
 
     // assign = equality ("=" assign)?
-    fn assign(token_list: &mut TokenList) ->  Link {
+    fn assign(token_list: &mut TokenList) -> Link {
         let mut assign_node = AST::equality(token_list);
-        
+
         if token_list.consume_assign() {
             let mut new_node = ASTNode::new_assign_node();
             new_node.add_neighbor_node(assign_node.take(), AST::assign(token_list));
@@ -97,7 +96,7 @@ impl AST {
     }
 
     // equality   = relational ("==" relational | "!=" relational)*
-    fn equality(token_list: &mut TokenList) ->  Link {
+    fn equality(token_list: &mut TokenList) -> Link {
         let mut equality_node = AST::relational(token_list);
 
         loop {
@@ -117,7 +116,7 @@ impl AST {
     }
 
     // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
-    fn relational(token_list: &mut TokenList) ->  Link {
+    fn relational(token_list: &mut TokenList) -> Link {
         let mut relational_node = AST::add(token_list);
 
         loop {
@@ -146,7 +145,7 @@ impl AST {
     }
 
     // add = mul ("+" mul | "-" mul)*
-    fn add(token_list: &mut TokenList) ->  Link {
+    fn add(token_list: &mut TokenList) -> Link {
         let mut expr_node = AST::mul(token_list);
 
         loop {
@@ -188,26 +187,30 @@ impl AST {
     // unary = ("+" | "-")? primary
     fn urany(token_list: &mut TokenList) -> Link {
         if token_list.consume_operation(OperationKind::Add) {
-            return AST::primary(token_list); 
+            return AST::primary(token_list);
         }
         if token_list.consume_operation(OperationKind::Sub) {
             let mut new_node = ASTNode::new_operand_node(OperationKind::Sub);
             let zoro_node = ASTNode::new_primary_node(PrimaryNodeKind::Number(0));
             new_node.add_neighbor_node(Some(Box::new(zoro_node)), AST::primary(token_list));
             return Some(Box::new(new_node));
-        } 
+        }
         return AST::primary(token_list);
     }
 
     // primary    = num | ident | "(" expr ")"
-    fn primary(token_list: &mut TokenList) ->  Link {
+    fn primary(token_list: &mut TokenList) -> Link {
         if token_list.comsume_parentheses(ParenthesesKind::LeftParentheses) {
             let node = AST::expr(token_list);
             if token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
                 return node;
             } else {
                 if let Some(valid_token) = token_list.pop_head() {
-                    error_exit("parenthes is not closed", valid_token.token_pos, &token_list.raw_text);
+                    error_exit(
+                        "parenthes is not closed",
+                        valid_token.token_pos,
+                        &token_list.raw_text,
+                    );
                 } else {
                     // テキスト終端に要求エラーを立てる
                     let tail_pos = token_list.raw_text.chars().count();
@@ -215,14 +218,16 @@ impl AST {
                 }
             }
         }
-        return Some(Box::new(ASTNode::new_primary_node(token_list.expect_primary())));
+        return Some(Box::new(ASTNode::new_primary_node(
+            token_list.expect_primary(),
+        )));
     }
 }
 
 /*
 AST 生成規則
 program    = stmt*
-stmt       = expr ";" 
+stmt       = expr ";"
 expr       = assign
 assign     = equality ("=" assign)?
 equality   = relational ("==" relational | "!=" relational)*
@@ -235,20 +240,18 @@ primary    = num | ident | "(" expr ")"
 // ASTはstmt単位で作成し,
 // ASTのリストをASTVecとして保存する
 pub struct ASTVec {
-    pub vec: Vec<AST>, 
-} 
+    pub vec: Vec<AST>,
+}
 
 impl ASTVec {
     fn new() -> ASTVec {
-        ASTVec {
-            vec: vec!(),
-        }
+        ASTVec { vec: vec![] }
     }
 
-    pub fn make_ast_vec(token_list: &mut TokenList) -> ASTVec{
+    pub fn make_ast_vec(token_list: &mut TokenList) -> ASTVec {
         let mut ast_vec = ASTVec::new();
         while !token_list.is_empty() {
-            let ast : AST = AST::new(token_list);
+            let ast: AST = AST::new(token_list);
             token_list.consume_statement_end();
             ast_vec.vec.push(ast);
         }

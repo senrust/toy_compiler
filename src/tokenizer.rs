@@ -14,7 +14,7 @@ pub enum OperationKind {
     Add,
     Sub,
     Mul,
-    Div,    
+    Div,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -77,7 +77,7 @@ impl TokenList {
             return None;
         }
     }
-    
+
     pub fn is_empty(&mut self) -> bool {
         self.head.is_none()
     }
@@ -91,14 +91,14 @@ impl TokenList {
                 } else {
                     return false;
                 }
-            },
+            }
             None => {
                 return false;
             }
         }
     }
 
-    pub fn comsume_parentheses(&mut self, parenthese: ParenthesesKind)  -> bool{
+    pub fn comsume_parentheses(&mut self, parenthese: ParenthesesKind) -> bool {
         match self.peek_head() {
             Some(token) => {
                 if token.token_kind == TokenKind::Parentheses(parenthese) {
@@ -107,7 +107,7 @@ impl TokenList {
                 } else {
                     return false;
                 }
-            },
+            }
             None => {
                 return false;
             }
@@ -123,7 +123,7 @@ impl TokenList {
                 } else {
                     return false;
                 }
-            },
+            }
             None => {
                 return false;
             }
@@ -134,14 +134,12 @@ impl TokenList {
         let token = self.pop_head();
         let error_text = "expect ; at end of statement";
         match token {
-            Some(valid_token) => {
-                match valid_token.token_kind {
-                    TokenKind::StateMentEnd => {
-                        return true;
-                    },
-                    _ => {
-                        error_exit(error_text, valid_token.token_pos, &self.raw_text);
-                    }
+            Some(valid_token) => match valid_token.token_kind {
+                TokenKind::StateMentEnd => {
+                    return true;
+                }
+                _ => {
+                    error_exit(error_text, valid_token.token_pos, &self.raw_text);
                 }
             },
             // Noneの場合はトークン終了を意味する
@@ -157,18 +155,16 @@ impl TokenList {
         let token = self.pop_head();
         let error_text = "expect number or variable token";
         match token {
-            Some(valid_token) => {
-                match valid_token.token_kind {
-                    TokenKind::Number(num) => {
-                        return PrimaryNodeKind::Number(num);
-                    },
-                    TokenKind::Variable(var) => {
-                        let offset = (var as i32 - 'a' as i32 + 1) * 8;
-                        return PrimaryNodeKind::Variable(var, offset);
-                    }
-                    _ => {
-                        error_exit(error_text, valid_token.token_pos, &self.raw_text);
-                    }
+            Some(valid_token) => match valid_token.token_kind {
+                TokenKind::Number(num) => {
+                    return PrimaryNodeKind::Number(num);
+                }
+                TokenKind::Variable(var) => {
+                    let offset = (var as i32 - 'a' as i32 + 1) * 8;
+                    return PrimaryNodeKind::Variable(var, offset);
+                }
+                _ => {
+                    error_exit(error_text, valid_token.token_pos, &self.raw_text);
                 }
             },
             // Noneの場合はトークン終了を意味する
@@ -220,9 +216,9 @@ fn pop_symbol(char_queue: &mut VecDeque<char>) -> TokenKind {
     let ch = char_queue.pop_front().unwrap();
     let mut op_string = ch.to_string();
 
-    if op_string == "(" { 
+    if op_string == "(" {
         return TokenKind::Parentheses(ParenthesesKind::LeftParentheses);
-    } else if op_string == ")" { 
+    } else if op_string == ")" {
         return TokenKind::Parentheses(ParenthesesKind::RightParentheses);
     } else if op_string == ";" {
         return TokenKind::StateMentEnd;
@@ -239,23 +235,23 @@ fn pop_symbol(char_queue: &mut VecDeque<char>) -> TokenKind {
         TokenKind::Assign
     } else if op_string == ">" {
         TokenKind::Operation(OperationKind::Gt)
-    } else if op_string == ">=" { 
+    } else if op_string == ">=" {
         TokenKind::Operation(OperationKind::Ge)
-    } else if op_string == "==" { 
+    } else if op_string == "==" {
         TokenKind::Operation(OperationKind::Eq)
-    } else if op_string == "!=" { 
+    } else if op_string == "!=" {
         TokenKind::Operation(OperationKind::Not)
-    } else if op_string == "<=" { 
+    } else if op_string == "<=" {
         TokenKind::Operation(OperationKind::Le)
-    } else if op_string == "<" { 
+    } else if op_string == "<" {
         TokenKind::Operation(OperationKind::Lt)
-    } else if op_string == "+" { 
+    } else if op_string == "+" {
         TokenKind::Operation(OperationKind::Add)
-    } else if op_string == "-" { 
+    } else if op_string == "-" {
         TokenKind::Operation(OperationKind::Sub)
-    } else if op_string == "*" { 
+    } else if op_string == "*" {
         TokenKind::Operation(OperationKind::Mul)
-    } else if op_string == "/" { 
+    } else if op_string == "/" {
         TokenKind::Operation(OperationKind::Div)
     } else {
         TokenKind::InvalidToken
@@ -263,7 +259,7 @@ fn pop_symbol(char_queue: &mut VecDeque<char>) -> TokenKind {
 }
 
 // 現在は一文字の小文字ascii(a~z)にのみ対応
-fn pop_variable(char_queue: &mut VecDeque<char>) -> TokenKind{
+fn pop_variable(char_queue: &mut VecDeque<char>) -> TokenKind {
     let ch = char_queue.pop_front().unwrap();
     TokenKind::Variable(ch)
 }
@@ -286,7 +282,7 @@ pub fn text_tokenizer(text: &str) -> TokenList {
             char_queue.pop_front();
             continue;
         }
-       
+
         if ch.is_digit(10) {
             let num = pop_digit(&mut char_queue);
             new_token.token_kind = TokenKind::Number(num);

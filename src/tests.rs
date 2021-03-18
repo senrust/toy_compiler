@@ -5,8 +5,8 @@ mod tests {
     #[cfg(target_arch = "x86")]
     use std::process::Command;
 
-    use crate::tokenizer;
     use crate::ast;
+    use crate::tokenizer;
 
     #[cfg(target_arch = "x86")]
     fn make_binary_from_asm() {
@@ -19,7 +19,7 @@ mod tests {
     }
 
     #[cfg(target_arch = "x86")]
-    fn compare_output() -> i32{
+    fn compare_output() -> i32 {
         let status = Command::new("sh")
             .arg("-c")
             .arg("./a.out")
@@ -47,7 +47,10 @@ mod tests {
             if correct_output == result {
                 println!("suceeded!");
             } else {
-                println!("test failed! expected {} but {} retuend", correct_output, result);
+                println!(
+                    "test failed! expected {} but {} retuend",
+                    correct_output, result
+                );
                 panic!();
             }
         }

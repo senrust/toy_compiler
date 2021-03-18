@@ -27,11 +27,13 @@ fn write_operation<T: Write>(buf: &mut T, instruction: String) {
 pub fn output_asembly(input_text: &str) {
     let mut file = BufWriter::new(fs::File::create("tmp.s").unwrap());
     write_header(&mut file);
-    
+
     let mut token_list = tokenizer::text_tokenizer(input_text);
     let mut ast = ast::AST::new(&mut token_list);
     let instruction_vec = compiler::compile_ast(&mut ast);
-    instruction_vec.into_iter().for_each(|instruction| write_operation(&mut file, instruction));
+    instruction_vec
+        .into_iter()
+        .for_each(|instruction| write_operation(&mut file, instruction));
     write_footer(&mut file);
 }
 fn main() {
@@ -42,10 +44,12 @@ fn main() {
     let input_text = &args[1];
     let mut file = BufWriter::new(fs::File::create("tmp.s").unwrap());
     write_header(&mut file);
-    
+
     let mut token_list = tokenizer::text_tokenizer(input_text);
     let mut ast = ast::AST::new(&mut token_list);
     let instruction_vec = compiler::compile_ast(&mut ast);
-    instruction_vec.into_iter().for_each(|instruction| write_operation(&mut file, instruction));
+    instruction_vec
+        .into_iter()
+        .for_each(|instruction| write_operation(&mut file, instruction));
     write_footer(&mut file);
 }
