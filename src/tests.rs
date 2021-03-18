@@ -2,9 +2,13 @@
 mod tests {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
+    #[cfg(target_arch = "x86")]
     use std::process::Command;
-    use crate::output_asembly;
 
+    use crate::tokenizer;
+    use crate::ast;
+
+    #[cfg(target_arch = "x86")]
     fn make_binary_from_asm() {
         Command::new("cc")
             .arg("-o")
@@ -14,6 +18,7 @@ mod tests {
             .expect("failed to asemble binary");
     }
 
+    #[cfg(target_arch = "x86")]
     fn compare_output() -> i32{
         let status = Command::new("sh")
             .arg("-c")
@@ -26,8 +31,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_arch = "x86")]
     fn compiler_test() {
-        let f = File::open("testset.txt").unwrap();
+        use crate::output_asembly;
+        let f = File::open("./test/binary_test.txt").unwrap();
         for line_result in BufReader::new(f).lines() {
             let test_set = line_result.unwrap();
             let test_vec: Vec<&str> = test_set.split(",").collect();
@@ -43,6 +50,18 @@ mod tests {
                 println!("test failed! expected {} but {} retuend", correct_output, result);
                 panic!();
             }
+        }
+    }
+
+    #[test]
+    fn ast_test() {
+        let f = File::open("./test/ast_test.txt").unwrap();
+        for line_result in BufReader::new(f).lines() {
+            let ast_text = line_result.unwrap();
+            println!("try making ast of {}", ast_text);
+            let mut token_list = tokenizer::text_tokenizer(&ast_text);
+            ast::ASTVec::make_ast_vec(&mut token_list);
+            println!("suceeded!");
         }
     }
 }

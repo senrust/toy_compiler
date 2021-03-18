@@ -1,8 +1,8 @@
-use crate::ast::{AST, ASTNode, ASTNodeKind};
+use crate::ast::{AST, ASTNode, ASTNodeKind, PrimaryNodeKind};
 use super::tokenizer::OperationKind;
 
 fn compile_node(mut node: ASTNode, instruction_vec: &mut Vec<String>) {
-    if let ASTNodeKind::Number(num) = node.node_kind {
+    if let ASTNodeKind::Primary(PrimaryNodeKind::Number(num)) = node.node_kind {
         let instruction = format!("    push {}", num);
         instruction_vec.push(instruction);
         return;
