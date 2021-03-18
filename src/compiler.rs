@@ -1,11 +1,11 @@
-use crate::ast::{ASTNode, ASTNodeKind, PrimaryNodeKind, AST};
+use crate::ast::{ASTNode, ASTNodeKind, PrimaryNodeKind, AST, ASTVec};
 use crate::error::error_exit;
 use super::tokenizer::OperationKind;
 
 // ローカル変数のアドレスをスタックにpushする
-fn push_local_variable_address(offset:i32, instruction_vec: &mut Vec<String>) {
-    instruction_vec.push(format!("    mov rax [rbp]"));
-    instruction_vec.push(format!("    sub rax {}",offset));
+fn push_local_variable_address(offset: usize, instruction_vec: &mut Vec<String>) {
+    instruction_vec.push(format!("    mov rax, rbp"));
+    instruction_vec.push(format!("    sub rax, {}",offset));
     instruction_vec.push(format!("    push rax"));
 }
 
@@ -91,13 +91,21 @@ fn compile_node(mut node: ASTNode, instruction_vec: &mut Vec<String>, input_text
 
 // astからアセンブラを出力する
 // 渡されるastはrooがNoneか, 正しいASTである
-pub fn compile_ast(ast: &mut AST) -> Vec<String> {
-    let mut instruction_vec: Vec<String> = vec![];
+pub fn compile_ast(mut ast: AST, instruction_vec: &mut Vec<String>){
     match ast.root.take() {
         Some(top_node) => {
-            compile_node(*top_node, &mut instruction_vec, &mut ast.raw_text);
+            compile_node(*top_node, instruction_vec, &mut ast.raw_text);
         }
         None => {}
+    }
+}
+
+// ast_vecからアセンブラを出力する
+pub fn compile_astvec(ast_vec: ASTVec) -> Vec<String> {
+    let mut instruction_vec: Vec<String> = vec![];
+    for ast in ast_vec.vec {
+        compile_ast(ast, &mut instruction_vec);
+        instruction_vec.push(format!("    pop rax"));
     }
     instruction_vec
 }

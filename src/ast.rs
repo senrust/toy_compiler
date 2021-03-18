@@ -3,7 +3,7 @@ use super::tokenizer::{OperationKind, ParenthesesKind, TokenList};
 
 pub enum PrimaryNodeKind {
     Number(i32),
-    LocalVariable(i32), // (offset from bsp)
+    LocalVariable(usize), // (offset from bsp)
 }
 
 pub enum ASTNodeKind {

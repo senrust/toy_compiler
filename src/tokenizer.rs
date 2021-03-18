@@ -28,7 +28,7 @@ pub enum TokenKind {
     Number(i32),
     Operation(OperationKind),
     Parentheses(ParenthesesKind),
-    Variable(char),
+    LocalVariable(usize),
     Assign,
     StateMentEnd,
     InvalidToken,
@@ -55,6 +55,7 @@ impl Token {
 pub struct TokenList {
     pub head: Option<Box<Token>>,
     pub raw_text: String,
+    pub local_stack_size: usize
 }
 
 impl TokenList {
@@ -62,6 +63,7 @@ impl TokenList {
         TokenList {
             raw_text: String::from(text),
             head: None,
+            local_stack_size: 0,
         }
     }
 
@@ -158,8 +160,7 @@ impl TokenList {
                 TokenKind::Number(num) => {
                     return (PrimaryNodeKind::Number(num), valid_token.token_pos);
                 }
-                TokenKind::Variable(var) => {
-                    let offset = (var as i32 - 'a' as i32 + 1) * 8;
+                TokenKind::LocalVariable(offset) => {
                     return (PrimaryNodeKind::LocalVariable(offset), valid_token.token_pos);
                 }
                 _ => {
@@ -258,9 +259,26 @@ fn pop_symbol(char_queue: &mut VecDeque<char>) -> TokenKind {
 }
 
 // 現在は一文字の小文字ascii(a~z)にのみ対応
-fn pop_variable(char_queue: &mut VecDeque<char>) -> TokenKind {
+fn pop_variable(char_queue: &mut VecDeque<char>, local_variable_set: &mut Vec<String>) -> TokenKind {
     let ch = char_queue.pop_front().unwrap();
-    TokenKind::Variable(ch)
+    let mut local_varibale = format!("{}",ch);
+
+    // asciiが続くうちは取り出す
+    if let Some(next_ch_ref) = char_queue.front() {
+        if next_ch_ref.is_ascii_alphabetic() {
+            let next_ch = char_queue.pop_front().unwrap();
+            local_varibale.push(next_ch);
+        }
+    }
+
+    for (index, exist_variable) in local_variable_set.iter().enumerate() {
+        if *exist_variable == local_varibale {
+            return TokenKind::LocalVariable((index + 1) * 8);
+        }
+    }
+    local_variable_set.push(local_varibale);
+
+    TokenKind::LocalVariable(local_variable_set.len() * 8)
 }
 
 // 入力テキストのトークン連結リストを作成する
@@ -270,6 +288,7 @@ pub fn text_tokenizer(text: &str) -> TokenList {
     let mut tokenlist = TokenList::new(text);
     let mut current_token = &mut tokenlist.head;
     let text_len = char_queue.len();
+    let mut local_varibales: Vec<String> = vec![];
 
     while !char_queue.is_empty() {
         // 解析トークンの位置はテキストの長さ-未処理文字数で求まる
@@ -277,7 +296,7 @@ pub fn text_tokenizer(text: &str) -> TokenList {
         let mut new_token = Token::new(token_pos);
         let ch = char_queue.front().unwrap();
 
-        if *ch == ' ' {
+        if *ch == ' ' || *ch == '\n' {
             char_queue.pop_front();
             continue;
         }
@@ -287,8 +306,8 @@ pub fn text_tokenizer(text: &str) -> TokenList {
             new_token.token_kind = TokenKind::Number(num);
         } else if ch.is_ascii_punctuation() {
             new_token.token_kind = pop_symbol(&mut char_queue);
-        } else if ch.is_ascii_lowercase() {
-            new_token.token_kind = pop_variable(&mut char_queue);
+        } else if ch.is_ascii_alphabetic() {
+            new_token.token_kind = pop_variable(&mut char_queue, &mut local_varibales);
         }
 
         if new_token.token_kind == TokenKind::InvalidToken {
@@ -305,5 +324,6 @@ pub fn text_tokenizer(text: &str) -> TokenList {
             }
         }
     }
+    tokenlist.local_stack_size = local_varibales.len() * 8;
     tokenlist
 }
