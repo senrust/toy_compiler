@@ -3,7 +3,7 @@ use super::tokenizer::{OperationKind, ParenthesesKind, TokenList};
 
 pub enum PrimaryNodeKind {
     Number(i32),
-    Variable(char, i32), // (variablename, offset from bsp)
+    LocalVariable(i32), // (offset from bsp)
 }
 
 pub enum ASTNodeKind {
@@ -16,14 +16,16 @@ pub struct ASTNode {
     pub node_kind: ASTNodeKind,
     pub left: Option<Box<ASTNode>>,
     pub right: Option<Box<ASTNode>>,
+    pub node_pos: usize,  // 左辺値チェック用にASTNodeの文字列位置を保持する
 }
 
 impl ASTNode {
-    fn new_primary_node(primary_node: PrimaryNodeKind) -> ASTNode {
+    fn new_primary_node(primary_node: PrimaryNodeKind, node_pos:usize) -> ASTNode {
         ASTNode {
             node_kind: ASTNodeKind::Primary(primary_node),
             left: None,
             right: None,
+            node_pos,
         }
     }
 
@@ -32,14 +34,16 @@ impl ASTNode {
             node_kind: ASTNodeKind::Operation(kind),
             left: None,
             right: None,
+            node_pos: 0,    // OperationNodeはpos不要
         }
     }
 
-    fn new_assign_node() -> ASTNode {
+    fn new_assign_node(node_pos:usize) -> ASTNode {
         ASTNode {
             node_kind: ASTNodeKind::Assign,
             left: None,
             right: None,
+            node_pos,
         }
     }
 
@@ -68,12 +72,14 @@ type Link = Option<Box<ASTNode>>;
 // ;で区切られた領域のASTを作成する
 pub struct AST {
     pub root: Link,
+    pub raw_text: String,
 }
 
 impl AST {
     pub fn new(token_list: &mut TokenList) -> AST {
         let ast_tree = AST {
             root: AST::expr(token_list),
+            raw_text: token_list.raw_text.clone(),
         };
         ast_tree
     }
@@ -87,8 +93,9 @@ impl AST {
     fn assign(token_list: &mut TokenList) -> Link {
         let mut assign_node = AST::equality(token_list);
 
-        if token_list.consume_assign() {
-            let mut new_node = ASTNode::new_assign_node();
+        if token_list.is_assign() {
+            let assign_token = token_list.pop_head().unwrap();
+            let mut new_node = ASTNode::new_assign_node(assign_token.token_pos);
             new_node.add_neighbor_node(assign_node.take(), AST::assign(token_list));
             assign_node = Some(Box::new(new_node));
         }
@@ -191,7 +198,7 @@ impl AST {
         }
         if token_list.consume_operation(OperationKind::Sub) {
             let mut new_node = ASTNode::new_operand_node(OperationKind::Sub);
-            let zoro_node = ASTNode::new_primary_node(PrimaryNodeKind::Number(0));
+            let zoro_node = ASTNode::new_primary_node(PrimaryNodeKind::Number(0), 0);
             new_node.add_neighbor_node(Some(Box::new(zoro_node)), AST::primary(token_list));
             return Some(Box::new(new_node));
         }
@@ -218,9 +225,10 @@ impl AST {
                 }
             }
         }
-        return Some(Box::new(ASTNode::new_primary_node(
-            token_list.expect_primary(),
-        )));
+
+        let (primarykind, token_pos) = token_list.expect_primary();
+        let primary_node = ASTNode::new_primary_node(primarykind, token_pos);
+        return Some(Box::new(primary_node));
     }
 }
 

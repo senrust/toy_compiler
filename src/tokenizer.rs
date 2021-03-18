@@ -114,11 +114,10 @@ impl TokenList {
         }
     }
 
-    pub fn consume_assign(&mut self) -> bool {
+    pub fn is_assign(&mut self) -> bool {
         match self.peek_head() {
             Some(token) => {
                 if token.token_kind == TokenKind::Assign {
-                    self.pop_head();
                     return true;
                 } else {
                     return false;
@@ -151,17 +150,17 @@ impl TokenList {
         }
     }
 
-    pub fn expect_primary(&mut self) -> PrimaryNodeKind {
+    pub fn expect_primary(&mut self) -> (PrimaryNodeKind, usize) {
         let token = self.pop_head();
         let error_text = "expect number or variable token";
         match token {
             Some(valid_token) => match valid_token.token_kind {
                 TokenKind::Number(num) => {
-                    return PrimaryNodeKind::Number(num);
+                    return (PrimaryNodeKind::Number(num), valid_token.token_pos);
                 }
                 TokenKind::Variable(var) => {
                     let offset = (var as i32 - 'a' as i32 + 1) * 8;
-                    return PrimaryNodeKind::Variable(var, offset);
+                    return (PrimaryNodeKind::LocalVariable(offset), valid_token.token_pos);
                 }
                 _ => {
                     error_exit(error_text, valid_token.token_pos, &self.raw_text);
