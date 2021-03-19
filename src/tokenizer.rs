@@ -344,6 +344,55 @@ fn pop_variable(char_queue: &mut VecDeque<char>, local_variable_set: &mut Vec<St
     TokenKind::LocalVariable(local_variable_set.len() * 8)
 }
 
+// プログラム文終端までコメントの場合はOk(true)を返す
+fn skip_comment(char_queue: &mut VecDeque<char>) -> Result<(), ()> {
+    if let Some(ch0) = char_queue.get(0) {
+        if *ch0 == '/' {
+            if let Some(ch1) = char_queue.get(1) {
+                if *ch1 == '/' { // 一行コメント
+                    char_queue.pop_front();
+                    char_queue.pop_front();
+                    loop {
+                        if let Some(ch) = char_queue.pop_front() {
+                            if ch == '\n' {
+                                return Ok(());
+                            }
+                        } else {
+                            return Ok(());
+                        }
+                    }
+                } else if *ch1 == '*' { // ブロックコメント
+                    char_queue.pop_front();
+                    char_queue.pop_front();
+                    loop {
+                        // 先頭とその次が "*/"の場合まで1文字ずつ取り出す
+                        if let Some(ch0) = char_queue.get(0) {
+                            if let Some(ch1) = char_queue.get(1) {
+                                if *ch0 == '*' && *ch1 == '/' {
+                                    char_queue.pop_front();
+                                    char_queue.pop_front();
+                                    return Ok(());
+                                } else {
+                                    // 先頭1文字を取り出す
+                                    char_queue.pop_front();
+                                }
+
+                            } else {
+                                // コメントが閉じられていない
+                                return Err(());
+                            }
+                        } else {
+                            // コメントが閉じられていない
+                            return Err(());
+                        }
+                    }
+                }
+            }
+        } 
+    } 
+    Ok(())
+}
+
 // 入力テキストのトークン連結リストを作成する
 pub fn text_tokenizer(text: &str) -> TokenList {
     // グローバルなPROGRAM_TEXTにミュータブルなcursorを用意して一文字ずつ参照, cursorを移動したいが, 
@@ -361,6 +410,17 @@ pub fn text_tokenizer(text: &str) -> TokenList {
         // 解析トークンの位置はテキストの長さ-未処理文字数で求まる
         let token_pos = text_len - char_queue.len();
         let mut new_token = Token::new(token_pos);
+
+        match skip_comment(&mut char_queue) {
+            Ok(_) => {
+                if char_queue.is_empty() {
+                    break;
+                }
+            },
+            // コメントが閉じられていない場合
+            Err(_) => {error_exit("comment is unclosed", text_len - 1);}
+        }
+
         let ch = char_queue.front().unwrap();
 
         if *ch == ' ' || *ch == '\n' {
@@ -378,7 +438,7 @@ pub fn text_tokenizer(text: &str) -> TokenList {
         }
 
         if new_token.token_kind == TokenKind::InvalidToken {
-            error_exit("unsupported token", new_token.token_pos)
+            error_exit("unsupported token", new_token.token_pos);
         }
 
         match current_token {

@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use std::fs::{self, File};
-    use std::io::{BufRead, BufReader};
     #[cfg(target_arch = "x86_64")]
     use std::process::Command;
 
@@ -34,6 +32,8 @@ mod tests {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn compiler_test() {
         use crate::output_asembly;
+        use std::fs::File;
+        use std::io::{BufRead, BufReader};
 
         let f = File::open("./test/binary_test.txt").unwrap();
         let mut lines_iter = BufReader::new(f).lines();
@@ -59,6 +59,7 @@ mod tests {
 
     #[test]
     fn ast_test() {
+        use std::fs;
         let input_program = fs::read_to_string("./test/ast_test.txt").unwrap();
         println!("try making ast of\n{}", input_program);
         let mut token_list = tokenizer::text_tokenizer(&input_program);
