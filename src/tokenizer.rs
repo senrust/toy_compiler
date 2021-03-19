@@ -409,10 +409,6 @@ pub fn text_tokenizer(text: &str) -> TokenList {
     let mut local_varibales: Vec<String> = vec![];
 
     while !char_queue.is_empty() {
-        // 解析トークンの位置はテキストの長さ-未処理文字数で求まる
-        let token_pos = text_len - char_queue.len();
-        let mut new_token = Token::new(token_pos);
-
         match skip_comment(&mut char_queue) {
             Ok(_) => {
                 if char_queue.is_empty() {
@@ -431,6 +427,10 @@ pub fn text_tokenizer(text: &str) -> TokenList {
             char_queue.pop_front();
             continue;
         }
+        
+        // 解析トークンの位置はテキストの長さ-未処理文字数で求まる
+        let token_pos = text_len - char_queue.len();
+        let mut new_token = Token::new(token_pos);
 
         if ch.is_digit(10) {
             let num = pop_digit(&mut char_queue);

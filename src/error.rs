@@ -1,6 +1,9 @@
 use crate::tokenizer::PROGRAM_TEXT;
 use std::process::exit;
 
+// エラー行に全角表示文字があるとその文ずれる
+// (スペースは半角のため)
+// utfコードから全角判断してスペースを余分に追加すれば対応できるはず
 pub fn error_exit(error_text: &str, error_pos: usize) -> ! {
     let (error_line_string, error_line, error_column) =
         PROGRAM_TEXT.get().unwrap().get_error_line(error_pos);
