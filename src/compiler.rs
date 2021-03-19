@@ -9,7 +9,7 @@ fn push_local_variable_address(offset: usize, instruction_vec: &mut Vec<String>)
     instruction_vec.push(format!("    push rax"));
 }
 
-fn compile_node(mut node: ASTNode, instruction_vec: &mut Vec<String>, input_text: &String) {
+fn compile_node(mut node: ASTNode, instruction_vec: &mut Vec<String>) {
     if let ASTNodeKind::Primary(PrimaryNodeKind::Number(num)) = node.node_kind {
         let instruction = format!("    push {}", num);
         instruction_vec.push(instruction);
@@ -20,29 +20,29 @@ fn compile_node(mut node: ASTNode, instruction_vec: &mut Vec<String>, input_text
         instruction_vec.push(format!("    mov rax, [rax]"));
         instruction_vec.push(format!("    push rax"));
         return;
-    } else if let ASTNodeKind::Assign = node.node_kind {
+    } else if let ASTNodeKind::Assign(text_pos) = node.node_kind {
         //  = の左辺値が変数であること
         // 渡されたastは正しいのでunwrapしても問題ない
         let left_node = node.left.take().unwrap();
         let right_node = node.right.take().unwrap();
         if let ASTNodeKind::Primary(PrimaryNodeKind::LocalVariable(offset)) = left_node.node_kind {
             push_local_variable_address(offset, instruction_vec);
-            compile_node(*right_node, instruction_vec, input_text);
+            compile_node(*right_node, instruction_vec);
             instruction_vec.push(format!("    pop rdi"));
             instruction_vec.push(format!("    pop rax"));
             instruction_vec.push(format!("    mov [rax], rdi"));
             instruction_vec.push(format!("    push rdi"));
             return;
         } else {
-            error_exit("left value is not correct", node.node_pos, input_text);
+            error_exit("left value is not correct", text_pos);
         }
     }
 
     // 渡されたastは正しいのでunwrapしても問題ない
     let left_node = node.left.take().unwrap();
     let right_node = node.right.take().unwrap();
-    compile_node(*left_node, instruction_vec, input_text);
-    compile_node(*right_node, instruction_vec, input_text);
+    compile_node(*left_node, instruction_vec);
+    compile_node(*right_node, instruction_vec);
 
     instruction_vec.push(format!("    pop rdi"));
     instruction_vec.push(format!("    pop rax"));
@@ -94,7 +94,7 @@ fn compile_node(mut node: ASTNode, instruction_vec: &mut Vec<String>, input_text
 pub fn compile_ast(mut ast: AST, instruction_vec: &mut Vec<String>){
     match ast.root.take() {
         Some(top_node) => {
-            compile_node(*top_node, instruction_vec, &mut ast.raw_text);
+            compile_node(*top_node, instruction_vec);
         }
         None => {}
     }

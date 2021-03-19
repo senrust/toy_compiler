@@ -1,5 +1,5 @@
 use super::error::error_exit;
-use super::tokenizer::{OperationKind, ParenthesesKind, TokenList};
+use super::tokenizer::{OperationKind, ParenthesesKind, TokenList, PROGRAM_TEXT};
 
 pub enum PrimaryNodeKind {
     Number(i32),
@@ -9,23 +9,21 @@ pub enum PrimaryNodeKind {
 pub enum ASTNodeKind {
     Operation(OperationKind),
     Primary(PrimaryNodeKind),
-    Assign,
+    Assign(usize),    // =の文字列中の位置 左辺値に誤りがある場合に渡せるようにする
 }
 
 pub struct ASTNode {
     pub node_kind: ASTNodeKind,
     pub left: Option<Box<ASTNode>>,
     pub right: Option<Box<ASTNode>>,
-    pub node_pos: usize,  // 左辺値チェック用にASTNodeの文字列位置を保持する
 }
 
 impl ASTNode {
-    fn new_primary_node(primary_node: PrimaryNodeKind, node_pos:usize) -> ASTNode {
+    fn new_primary_node(primary_node: PrimaryNodeKind) -> ASTNode {
         ASTNode {
             node_kind: ASTNodeKind::Primary(primary_node),
             left: None,
             right: None,
-            node_pos,
         }
     }
 
@@ -34,16 +32,14 @@ impl ASTNode {
             node_kind: ASTNodeKind::Operation(kind),
             left: None,
             right: None,
-            node_pos: 0,    // OperationNodeはpos不要
         }
     }
 
     fn new_assign_node(node_pos:usize) -> ASTNode {
         ASTNode {
-            node_kind: ASTNodeKind::Assign,
+            node_kind: ASTNodeKind::Assign(node_pos),
             left: None,
             right: None,
-            node_pos,
         }
     }
 
@@ -72,14 +68,12 @@ type Link = Option<Box<ASTNode>>;
 // ;で区切られた領域のASTを作成する
 pub struct AST {
     pub root: Link,
-    pub raw_text: String,
 }
 
 impl AST {
     pub fn new(token_list: &mut TokenList) -> AST {
         let ast_tree = AST {
             root: AST::expr(token_list),
-            raw_text: token_list.raw_text.clone(),
         };
         ast_tree
     }
@@ -198,7 +192,7 @@ impl AST {
         }
         if token_list.consume_operation(OperationKind::Sub) {
             let mut new_node = ASTNode::new_operand_node(OperationKind::Sub);
-            let zoro_node = ASTNode::new_primary_node(PrimaryNodeKind::Number(0), 0);
+            let zoro_node = ASTNode::new_primary_node(PrimaryNodeKind::Number(0));
             new_node.add_neighbor_node(Some(Box::new(zoro_node)), AST::primary(token_list));
             return Some(Box::new(new_node));
         }
@@ -216,18 +210,17 @@ impl AST {
                     error_exit(
                         "parenthes is not closed",
                         valid_token.token_pos,
-                        &token_list.raw_text,
                     );
                 } else {
                     // テキスト終端に要求エラーを立てる
-                    let tail_pos = token_list.raw_text.chars().count();
-                    error_exit("parenthes is not closed", tail_pos, &token_list.raw_text);
+                    let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
+                    error_exit("parenthes is not closed", tail_pos);
                 }
             }
         }
 
-        let (primarykind, token_pos) = token_list.expect_primary();
-        let primary_node = ASTNode::new_primary_node(primarykind, token_pos);
+        let primarykind = token_list.expect_primary();
+        let primary_node = ASTNode::new_primary_node(primarykind);
         return Some(Box::new(primary_node));
     }
 }

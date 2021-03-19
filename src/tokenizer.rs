@@ -3,6 +3,65 @@ use std::{collections::VecDeque, iter::FromIterator};
 
 use crate::ast::PrimaryNodeKind;
 
+use once_cell::sync::OnceCell;
+
+pub struct ProgramText {
+    pub text: Vec<char>,
+}
+
+impl ProgramText {
+    fn new(text: Vec<char>) -> Self {
+        ProgramText {
+            text,
+        }
+    }
+
+    pub fn get_tail_pos(&self) -> usize {
+        self.text.len() - 1
+    }
+
+    pub fn get_error_line(&self, error_pos: usize) -> (String, usize, usize) {
+        let mut error_text = format!("");
+        let mut pos = error_pos;
+
+        // エラー発生行の終端位置を取得
+        while self.text[pos] != '\n' {
+            // エラー発生業が最終行の場合
+            if pos != self.text.len() -1 {
+                pos += 1;
+            } else {
+                break;
+            }
+        }
+        // posはエラー発生行の改行を指しているので, 1つ前に戻す
+        pos -= 1;
+        // エラー発生行の文字列を取得
+        while self.text[pos] != '\n'{
+            error_text = format!("{}{}", self.text[pos], error_text);
+
+            if pos != 0 {
+                pos -= 1;
+            } else {
+                break;
+            }
+        }
+        // posはエラー発生行の改行を指しているので, 1つ後ろに戻す
+        pos += 1;
+        
+        let mut curpos = 0;
+        let mut line = 1;
+        while curpos != pos {
+            if self.text[curpos] == '\n' {
+                line += 1;
+            }
+            curpos += 1;
+        }
+        (error_text, line, error_pos - pos)
+    }
+}
+
+pub static PROGRAM_TEXT: OnceCell<ProgramText> = OnceCell::new();
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum OperationKind {
     Gt,
@@ -54,14 +113,12 @@ impl Token {
 #[derive(Debug)]
 pub struct TokenList {
     pub head: Option<Box<Token>>,
-    pub raw_text: String,
     pub local_stack_size: usize
 }
 
 impl TokenList {
-    fn new(text: &str) -> TokenList {
+    fn new() -> TokenList {
         TokenList {
-            raw_text: String::from(text),
             head: None,
             local_stack_size: 0,
         }
@@ -140,38 +197,38 @@ impl TokenList {
                     return true;
                 }
                 _ => {
-                    error_exit(error_text, valid_token.token_pos, &self.raw_text);
+                    error_exit(error_text, valid_token.token_pos);
                 }
             },
             // Noneの場合はトークン終了を意味する
             None => {
                 // テキスト終端の1つ後ろに要求エラーを立てる
-                let tail_pos = self.raw_text.chars().count();
-                error_exit(error_text, tail_pos, &self.raw_text);
+                let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
+                error_exit(error_text, tail_pos);
             }
         }
     }
 
-    pub fn expect_primary(&mut self) -> (PrimaryNodeKind, usize) {
+    pub fn expect_primary(&mut self) -> PrimaryNodeKind {
         let token = self.pop_head();
         let error_text = "expect number or variable token";
         match token {
             Some(valid_token) => match valid_token.token_kind {
                 TokenKind::Number(num) => {
-                    return (PrimaryNodeKind::Number(num), valid_token.token_pos);
+                    return PrimaryNodeKind::Number(num);
                 }
                 TokenKind::LocalVariable(offset) => {
-                    return (PrimaryNodeKind::LocalVariable(offset), valid_token.token_pos);
+                    return PrimaryNodeKind::LocalVariable(offset);
                 }
                 _ => {
-                    error_exit(error_text, valid_token.token_pos, &self.raw_text);
+                    error_exit(error_text, valid_token.token_pos);
                 }
             },
             // Noneの場合はトークン終了を意味する
             None => {
                 // テキスト終端の1つ後ろに要求エラーを立てる
-                let tail_pos = self.raw_text.chars().count();
-                error_exit(error_text, tail_pos, &self.raw_text);
+                let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
+                error_exit(error_text, tail_pos);
             }
         }
     }
@@ -264,10 +321,16 @@ fn pop_variable(char_queue: &mut VecDeque<char>, local_variable_set: &mut Vec<St
     let mut local_varibale = format!("{}",ch);
 
     // asciiが続くうちは取り出す
-    if let Some(next_ch_ref) = char_queue.front() {
-        if next_ch_ref.is_ascii_alphabetic() {
-            let next_ch = char_queue.pop_front().unwrap();
-            local_varibale.push(next_ch);
+    loop {
+        if let Some(next_ch_ref) = char_queue.front() {
+            if next_ch_ref.is_ascii_alphabetic() {
+                let next_ch = char_queue.pop_front().unwrap();
+                local_varibale.push(next_ch);
+            } else {
+                break;
+            }
+        } else {
+            break;
         }
     }
 
@@ -283,9 +346,13 @@ fn pop_variable(char_queue: &mut VecDeque<char>, local_variable_set: &mut Vec<St
 
 // 入力テキストのトークン連結リストを作成する
 pub fn text_tokenizer(text: &str) -> TokenList {
-    // veqdeque よりはpeekableなイテレータで良いかも
+    // グローバルなPROGRAM_TEXTにミュータブルなcursorを用意して一文字ずつ参照, cursorを移動したいが, 
+    // グローバル変数はアクセスが面倒なので, 
+    // スタック内にVecDequeを用意して, トークン化はそれで行う 
+    let program_text = ProgramText::new(text.chars().collect());
+    PROGRAM_TEXT.set(program_text).ok();
     let mut char_queue = VecDeque::from_iter(text.chars());
-    let mut tokenlist = TokenList::new(text);
+    let mut tokenlist = TokenList::new();
     let mut current_token = &mut tokenlist.head;
     let text_len = char_queue.len();
     let mut local_varibales: Vec<String> = vec![];
@@ -311,7 +378,7 @@ pub fn text_tokenizer(text: &str) -> TokenList {
         }
 
         if new_token.token_kind == TokenKind::InvalidToken {
-            error_exit("unsupported token", new_token.token_pos, &text)
+            error_exit("unsupported token", new_token.token_pos)
         }
 
         match current_token {

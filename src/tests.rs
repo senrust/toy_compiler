@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
+    use std::fs::{self, File};
     use std::io::{BufRead, BufReader};
     #[cfg(target_arch = "x86_64")]
     use std::process::Command;
@@ -41,7 +41,7 @@ mod tests {
         let mut input_program = format!("");
         for line_result in lines_iter {
             let line = line_result.unwrap();
-            input_program = format!("{} \n {}", input_program, line);
+            input_program = format!("{}\n{}", input_program, line);
         }
         output_asembly(&input_program);
         make_binary_from_asm();
@@ -59,13 +59,10 @@ mod tests {
 
     #[test]
     fn ast_test() {
-        let f = File::open("./test/ast_test.txt").unwrap();
-        for line_result in BufReader::new(f).lines() {
-            let ast_text = line_result.unwrap();
-            println!("try making ast of {}", ast_text);
-            let mut token_list = tokenizer::text_tokenizer(&ast_text);
-            ast::ASTVec::make_ast_vec(&mut token_list);
-            println!("suceeded!");
-        }
+        let input_program = fs::read_to_string("./test/ast_test.txt").unwrap();
+        println!("try making ast of\n{}", input_program);
+        let mut token_list = tokenizer::text_tokenizer(&input_program);
+        ast::ASTVec::make_ast_vec(&mut token_list);
+        println!("suceeded!");
     }
 }
