@@ -11,9 +11,7 @@ pub struct ProgramText {
 
 impl ProgramText {
     fn new(text: Vec<char>) -> Self {
-        ProgramText {
-            text,
-        }
+        ProgramText { text }
     }
 
     pub fn get_tail_pos(&self) -> usize {
@@ -27,7 +25,7 @@ impl ProgramText {
         // エラー発生行の終端位置を取得
         while self.text[pos] != '\n' {
             // エラー発生業が最終行の場合
-            if pos != self.text.len() -1 {
+            if pos != self.text.len() - 1 {
                 pos += 1;
             } else {
                 break;
@@ -36,7 +34,7 @@ impl ProgramText {
         // posはエラー発生行の改行を指しているので, 1つ前に戻す
         pos -= 1;
         // エラー発生行の文字列を取得
-        while self.text[pos] != '\n'{
+        while self.text[pos] != '\n' {
             error_text = format!("{}{}", self.text[pos], error_text);
 
             if pos != 0 {
@@ -47,7 +45,7 @@ impl ProgramText {
         }
         // posはエラー発生行の改行を指しているので, 1つ後ろに戻す
         pos += 1;
-        
+
         let mut curpos = 0;
         let mut line = 1;
         while curpos != pos {
@@ -113,7 +111,7 @@ impl Token {
 #[derive(Debug)]
 pub struct TokenList {
     pub head: Option<Box<Token>>,
-    pub local_stack_size: usize
+    pub local_stack_size: usize,
 }
 
 impl TokenList {
@@ -316,9 +314,12 @@ fn pop_symbol(char_queue: &mut VecDeque<char>) -> TokenKind {
 }
 
 // 現在は一文字の小文字ascii(a~z)にのみ対応
-fn pop_variable(char_queue: &mut VecDeque<char>, local_variable_set: &mut Vec<String>) -> TokenKind {
+fn pop_variable(
+    char_queue: &mut VecDeque<char>,
+    local_variable_set: &mut Vec<String>,
+) -> TokenKind {
     let ch = char_queue.pop_front().unwrap();
-    let mut local_varibale = format!("{}",ch);
+    let mut local_varibale = format!("{}", ch);
 
     // asciiが続くうちは取り出す
     loop {
@@ -349,7 +350,8 @@ fn skip_comment(char_queue: &mut VecDeque<char>) -> Result<(), ()> {
     if let Some(ch0) = char_queue.get(0) {
         if *ch0 == '/' {
             if let Some(ch1) = char_queue.get(1) {
-                if *ch1 == '/' { // 一行コメント
+                if *ch1 == '/' {
+                    // 一行コメント
                     char_queue.pop_front();
                     char_queue.pop_front();
                     loop {
@@ -361,7 +363,8 @@ fn skip_comment(char_queue: &mut VecDeque<char>) -> Result<(), ()> {
                             return Ok(());
                         }
                     }
-                } else if *ch1 == '*' { // ブロックコメント
+                } else if *ch1 == '*' {
+                    // ブロックコメント
                     char_queue.pop_front();
                     char_queue.pop_front();
                     loop {
@@ -376,7 +379,6 @@ fn skip_comment(char_queue: &mut VecDeque<char>) -> Result<(), ()> {
                                     // 先頭1文字を取り出す
                                     char_queue.pop_front();
                                 }
-
                             } else {
                                 // コメントが閉じられていない
                                 return Err(());
@@ -388,16 +390,16 @@ fn skip_comment(char_queue: &mut VecDeque<char>) -> Result<(), ()> {
                     }
                 }
             }
-        } 
-    } 
+        }
+    }
     Ok(())
 }
 
 // 入力テキストのトークン連結リストを作成する
 pub fn text_tokenizer(text: &str) -> TokenList {
-    // グローバルなPROGRAM_TEXTにミュータブルなcursorを用意して一文字ずつ参照, cursorを移動したいが, 
-    // グローバル変数はアクセスが面倒なので, 
-    // スタック内にVecDequeを用意して, トークン化はそれで行う 
+    // グローバルなPROGRAM_TEXTにミュータブルなcursorを用意して一文字ずつ参照, cursorを移動したいが,
+    // グローバル変数はアクセスが面倒なので,
+    // スタック内にVecDequeを用意して, トークン化はそれで行う
     let program_text = ProgramText::new(text.chars().collect());
     PROGRAM_TEXT.set(program_text).ok();
     let mut char_queue = VecDeque::from_iter(text.chars());
@@ -416,9 +418,11 @@ pub fn text_tokenizer(text: &str) -> TokenList {
                 if char_queue.is_empty() {
                     break;
                 }
-            },
+            }
             // コメントが閉じられていない場合
-            Err(_) => {error_exit("comment is unclosed", text_len - 1);}
+            Err(_) => {
+                error_exit("comment is unclosed", text_len - 1);
+            }
         }
 
         let ch = char_queue.front().unwrap();

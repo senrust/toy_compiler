@@ -1,11 +1,11 @@
-use crate::ast::{ASTNode, ASTNodeKind, PrimaryNodeKind, AST, ASTVec};
-use crate::error::error_exit;
 use super::tokenizer::OperationKind;
+use crate::ast::{ASTNode, ASTNodeKind, ASTVec, PrimaryNodeKind, AST};
+use crate::error::error_exit;
 
 // ローカル変数のアドレスをスタックにpushする
 fn push_local_variable_address(offset: usize, instruction_vec: &mut Vec<String>) {
     instruction_vec.push(format!("    mov rax, rbp"));
-    instruction_vec.push(format!("    sub rax, {}",offset));
+    instruction_vec.push(format!("    sub rax, {}", offset));
     instruction_vec.push(format!("    push rax"));
 }
 
@@ -91,7 +91,7 @@ fn compile_node(mut node: ASTNode, instruction_vec: &mut Vec<String>) {
 
 // astからアセンブラを出力する
 // 渡されるastはrooがNoneか, 正しいASTである
-pub fn compile_ast(mut ast: AST, instruction_vec: &mut Vec<String>){
+pub fn compile_ast(mut ast: AST, instruction_vec: &mut Vec<String>) {
     match ast.root.take() {
         Some(top_node) => {
             compile_node(*top_node, instruction_vec);

@@ -9,7 +9,7 @@ pub enum PrimaryNodeKind {
 pub enum ASTNodeKind {
     Operation(OperationKind),
     Primary(PrimaryNodeKind),
-    Assign(usize),    // =の文字列中の位置 左辺値に誤りがある場合に渡せるようにする
+    Assign(usize), // =の文字列中の位置 左辺値に誤りがある場合に渡せるようにする
 }
 
 pub struct ASTNode {
@@ -35,7 +35,7 @@ impl ASTNode {
         }
     }
 
-    fn new_assign_node(node_pos:usize) -> ASTNode {
+    fn new_assign_node(node_pos: usize) -> ASTNode {
         ASTNode {
             node_kind: ASTNodeKind::Assign(node_pos),
             left: None,
@@ -207,10 +207,7 @@ impl AST {
                 return node;
             } else {
                 if let Some(valid_token) = token_list.pop_head() {
-                    error_exit(
-                        "parenthes is not closed",
-                        valid_token.token_pos,
-                    );
+                    error_exit("parenthes is not closed", valid_token.token_pos);
                 } else {
                     // テキスト終端に要求エラーを立てる
                     let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
