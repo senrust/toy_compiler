@@ -36,6 +36,14 @@ fn compile_node(mut node: ASTNode, instruction_vec: &mut Vec<String>) {
         } else {
             error_exit("left value is not correct", text_pos);
         }
+    } else if let ASTNodeKind::Return = node.node_kind  {
+        let left_node = node.left.take().unwrap();
+        compile_node(*left_node, instruction_vec);
+        instruction_vec.push(format!("    pop rax"));
+        instruction_vec.push(format!("    mov rsp, rbp"));
+        instruction_vec.push(format!("    pop rbp"));
+        instruction_vec.push(format!("    ret"));
+        return;
     }
 
     // 渡されたastは正しいのでunwrapしても問題ない

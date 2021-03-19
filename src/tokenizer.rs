@@ -87,6 +87,7 @@ pub enum TokenKind {
     Parentheses(ParenthesesKind),
     LocalVariable(usize),
     Assign,
+    Return,
     StateMentEnd,
     InvalidToken,
 }
@@ -186,6 +187,21 @@ impl TokenList {
         }
     }
 
+    pub fn is_return(&mut self) -> bool {
+        match self.peek_head() {
+            Some(token) => {
+                if token.token_kind == TokenKind::Return {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            None => {
+                return false;
+            }
+        }
+    }
+
     pub fn consume_statement_end(&mut self) -> bool {
         let token = self.pop_head();
         let error_text = "expect ; at end of statement";
@@ -249,7 +265,17 @@ impl Drop for TokenList {
     }
 }
 
-fn pop_digit(char_queue: &mut VecDeque<char>) -> i32 {
+fn is_operational_char(ch: &char) -> bool {
+    if *ch == '=' || *ch == '+' || *ch == '-' || *ch == '*' || *ch == '/' 
+    || *ch == ';' || *ch == '{' || *ch == '}' || *ch == '[' || *ch == ']'
+    || *ch == '\n' || *ch == ' ' {
+        true
+    } else {
+        false
+    }
+}
+
+fn pop_digit(char_queue: &mut VecDeque<char>) -> Result<i32, ()> {
     let mut num = char_queue.pop_front().unwrap().to_digit(10).unwrap() as i32;
     loop {
         let next = char_queue.front();
@@ -257,17 +283,19 @@ fn pop_digit(char_queue: &mut VecDeque<char>) -> i32 {
             if next_ch.is_digit(10) {
                 let next_digit = char_queue.pop_front().unwrap().to_digit(10).unwrap() as i32;
                 num = num * 10 + next_digit;
-            } else {
+            } else if  is_operational_char(next_ch) {
                 break;
+            } else {
+                return Err(());
             }
         } else {
             break;
         }
     }
-    num
+    Ok(num)
 }
 
-fn pop_symbol(char_queue: &mut VecDeque<char>) -> TokenKind {
+fn pop_operation(char_queue: &mut VecDeque<char>) -> TokenKind {
     let ch = char_queue.pop_front().unwrap();
     let mut op_string = ch.to_string();
 
@@ -313,18 +341,17 @@ fn pop_symbol(char_queue: &mut VecDeque<char>) -> TokenKind {
     }
 }
 
-// 現在は一文字の小文字ascii(a~z)にのみ対応
-fn pop_variable(
+fn pop_ascii_token(
     char_queue: &mut VecDeque<char>,
     local_variable_set: &mut Vec<String>,
 ) -> TokenKind {
     let ch = char_queue.pop_front().unwrap();
     let mut local_varibale = format!("{}", ch);
 
-    // asciiが続くうちは取り出す
+    // ascii, _, 0~9 が続くうちは取り出す
     loop {
         if let Some(next_ch_ref) = char_queue.front() {
-            if next_ch_ref.is_ascii_alphabetic() {
+            if next_ch_ref.is_ascii_alphabetic() || *next_ch_ref == '_' || next_ch_ref.is_digit(10) {
                 let next_ch = char_queue.pop_front().unwrap();
                 local_varibale.push(next_ch);
             } else {
@@ -333,6 +360,10 @@ fn pop_variable(
         } else {
             break;
         }
+    }
+
+    if local_varibale == "return" {
+        return TokenKind::Return;
     }
 
     for (index, exist_variable) in local_variable_set.iter().enumerate() {
@@ -433,12 +464,19 @@ pub fn text_tokenizer(text: &str) -> TokenList {
         let mut new_token = Token::new(token_pos);
 
         if ch.is_digit(10) {
-            let num = pop_digit(&mut char_queue);
-            new_token.token_kind = TokenKind::Number(num);
+            match pop_digit(&mut char_queue){
+                Ok(num) => {
+                    new_token.token_kind = TokenKind::Number(num);
+                }
+                Err(()) => {
+                    let error_pos = text_len - char_queue.len() + 1;
+                    error_exit("unsupported token", error_pos);
+                }
+            }
         } else if ch.is_ascii_punctuation() {
-            new_token.token_kind = pop_symbol(&mut char_queue);
+            new_token.token_kind = pop_operation(&mut char_queue);
         } else if ch.is_ascii_alphabetic() {
-            new_token.token_kind = pop_variable(&mut char_queue, &mut local_varibales);
+            new_token.token_kind = pop_ascii_token(&mut char_queue, &mut local_varibales);
         }
 
         if new_token.token_kind == TokenKind::InvalidToken {

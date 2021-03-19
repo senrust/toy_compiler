@@ -10,6 +10,7 @@ pub enum ASTNodeKind {
     Operation(OperationKind),
     Primary(PrimaryNodeKind),
     Assign(usize), // =の文字列中の位置 左辺値に誤りがある場合に渡せるようにする
+    Return,
 }
 
 pub struct ASTNode {
@@ -43,6 +44,14 @@ impl ASTNode {
         }
     }
 
+    fn new_return_node() -> ASTNode {
+        ASTNode {
+            node_kind: ASTNodeKind::Return,
+            left: None,
+            right: None,
+        }
+    }
+
     // ASTNodeを更新
     fn add_neighbor_node(&mut self, left: Link, right: Link) {
         self.left = left;
@@ -53,7 +62,7 @@ impl ASTNode {
 /*
 AST 生成規則
 program    = stmt*
-stmt       = expr ";"
+stmt       = expr ";" | "return" expr ";"
 expr       = assign
 assign     = equality ("=" assign)?
 equality   = relational ("==" relational | "!=" relational)*
@@ -73,9 +82,25 @@ pub struct AST {
 impl AST {
     pub fn new(token_list: &mut TokenList) -> AST {
         let ast_tree = AST {
-            root: AST::expr(token_list),
+            root: AST::stmt(token_list),
         };
         ast_tree
+    }
+
+    // stmt = expr ";" | "return" expr ";"
+    fn stmt(token_list: &mut TokenList) -> Link {
+        let stmt_node;
+        if token_list.is_return() {
+            let _return_token = token_list.pop_head().unwrap();
+            let mut return_node = ASTNode::new_return_node();
+            // 左辺値だけで良い
+            return_node.add_neighbor_node(AST::expr(token_list), None);
+            stmt_node = Some(Box::new(return_node));
+        } else {
+            stmt_node = AST::expr(token_list);
+        }
+        token_list.consume_statement_end();
+        stmt_node
     }
 
     // expr  = assign
@@ -221,20 +246,6 @@ impl AST {
         return Some(Box::new(primary_node));
     }
 }
-
-/*
-AST 生成規則
-program    = stmt*
-stmt       = expr ";"
-expr       = assign
-assign     = equality ("=" assign)?
-equality   = relational ("==" relational | "!=" relational)*
-relational = add ("<" add | "<=" add | ">" add | ">=" add)*
-add        = mul ("+" mul | "-" mul)*
-mul        = unary ("*" unary | "/" unary)*
-unary      = ("+" | "-")? primary
-primary    = num | ident | "(" expr ")"
-*/
 // ASTはstmt単位で作成し,
 // ASTのリストをASTVecとして保存する
 pub struct ASTVec {
@@ -250,7 +261,6 @@ impl ASTVec {
         let mut ast_vec = ASTVec::new();
         while !token_list.is_empty() {
             let ast: AST = AST::new(token_list);
-            token_list.consume_statement_end();
             ast_vec.vec.push(ast);
         }
         ast_vec
