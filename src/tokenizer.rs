@@ -44,7 +44,10 @@ impl ProgramText {
             }
         }
         // posはエラー発生行の改行を指しているので, 1つ後ろに戻す
-        pos += 1;
+        // ただし先頭行の場合はposが0を指している
+        if pos != 0 {
+            pos += 1;
+        } 
 
         let mut curpos = 0;
         let mut line = 1;
@@ -81,13 +84,25 @@ pub enum ParenthesesKind {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum BracesKind {
+    LeftBraces,
+    RightBraces,
+}
+
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
     Number(i32),
     Operation(OperationKind),
     Parentheses(ParenthesesKind),
+    Braces(BracesKind),
     LocalVariable(usize),
     Assign,
     Return,
+    While,
+    If,
+    Else,
+    For,
     StateMentEnd,
     InvalidToken,
 }
@@ -136,7 +151,7 @@ impl TokenList {
         }
     }
 
-    pub fn is_empty(&mut self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.head.is_none()
     }
 
@@ -172,7 +187,23 @@ impl TokenList {
         }
     }
 
-    pub fn is_assign(&mut self) -> bool {
+    pub fn comsume_braces(&mut self, braces: BracesKind) -> bool {
+        match self.peek_head() {
+            Some(token) => {
+                if token.token_kind == TokenKind::Braces(braces) {
+                    self.pop_head();
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            None => {
+                return false;
+            }
+        }
+    }
+
+    pub fn is_assign(&self) -> bool {
         match self.peek_head() {
             Some(token) => {
                 if token.token_kind == TokenKind::Assign {
@@ -187,10 +218,11 @@ impl TokenList {
         }
     }
 
-    pub fn is_return(&mut self) -> bool {
+    pub fn consume_return(&mut self) -> bool {
         match self.peek_head() {
             Some(token) => {
                 if token.token_kind == TokenKind::Return {
+                    self.pop_head();
                     return true;
                 } else {
                     return false;
@@ -201,6 +233,50 @@ impl TokenList {
             }
         }
     }
+
+    // if文かチェック
+    pub fn consume_if(&mut self) -> bool {
+        if let Some(first_token) = self.peek_head() {
+            if first_token.token_kind == TokenKind::If {
+                self.pop_head();
+                return true;
+            }
+        }
+        false
+    }
+
+    // else文かチェック
+    pub fn consume_else(&mut self) -> bool {
+        if let Some(first_token) = self.peek_head() {
+            if first_token.token_kind == TokenKind::Else {
+                self.pop_head();
+                return true;
+            }
+        }
+        false
+    }
+
+    // while文かチェック
+    pub fn consume_while(&mut self) -> bool {
+        if let Some(first_token) = self.peek_head() {
+            if first_token.token_kind == TokenKind::While {
+                self.pop_head();
+                return true;
+            }
+        }
+        false
+    }
+
+     // for文かチェック
+     pub fn consume_for(&mut self) -> bool {
+        if let Some(first_token) = self.peek_head() {
+            if first_token.token_kind == TokenKind::For {
+                self.pop_head();
+                return true;
+            }
+        }
+        false
+    } 
 
     pub fn consume_statement_end(&mut self) -> bool {
         let token = self.pop_head();
@@ -303,6 +379,10 @@ fn pop_operation(char_queue: &mut VecDeque<char>) -> TokenKind {
         return TokenKind::Parentheses(ParenthesesKind::LeftParentheses);
     } else if op_string == ")" {
         return TokenKind::Parentheses(ParenthesesKind::RightParentheses);
+    }  else if op_string == "{" {
+        return TokenKind::Braces(BracesKind::LeftBraces);
+    }  else if op_string == "}" {
+        return TokenKind::Braces(BracesKind::RightBraces);
     } else if op_string == ";" {
         return TokenKind::StateMentEnd;
     }
@@ -364,6 +444,14 @@ fn pop_ascii_token(
 
     if local_varibale == "return" {
         return TokenKind::Return;
+    } else if local_varibale == "while" {
+        return TokenKind::While;
+    } else if local_varibale == "if" {
+        return TokenKind::If;
+    } else if local_varibale == "else" {
+        return TokenKind::Else;
+    } else if local_varibale == "for" {
+        return TokenKind::For;
     }
 
     for (index, exist_variable) in local_variable_set.iter().enumerate() {
@@ -431,7 +519,15 @@ pub fn text_tokenizer(text: &str) -> TokenList {
     // グローバルなPROGRAM_TEXTにミュータブルなcursorを用意して一文字ずつ参照, cursorを移動したいが,
     // グローバル変数はアクセスが面倒なので,
     // スタック内にVecDequeを用意して, トークン化はそれで行う
-    let program_text = ProgramText::new(text.chars().collect());
+    let mut program_char: Vec<char> = text.chars().collect();
+    if !program_char.is_empty() {
+        if let Some(ch) = program_char.get(program_char.len() -1) {
+            if *ch != '\n' {
+                program_char.push('\n');
+            }
+        }
+    }
+    let program_text = ProgramText::new(program_char);
     PROGRAM_TEXT.set(program_text).ok();
     let mut char_queue = VecDeque::from_iter(text.chars());
     let mut tokenlist = TokenList::new();
@@ -469,7 +565,7 @@ pub fn text_tokenizer(text: &str) -> TokenList {
                     new_token.token_kind = TokenKind::Number(num);
                 }
                 Err(()) => {
-                    let error_pos = text_len - char_queue.len() + 1;
+                    let error_pos = text_len - char_queue.len();
                     error_exit("unsupported token", error_pos);
                 }
             }
