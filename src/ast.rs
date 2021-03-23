@@ -16,6 +16,7 @@ pub enum ASTNodeKind {
     While,
     For,
     MultStmt,   // Mult statement, 複文
+    FunctionCall(String),
 }
 
 pub struct ASTNode {
@@ -98,6 +99,16 @@ impl ASTNode {
         }
     }
 
+
+    fn new_funtioncall_node(function_name: String) -> ASTNode {
+        ASTNode {
+            node_kind: ASTNodeKind::FunctionCall(function_name),
+            left: None,
+            right: None,
+            vec: None,
+        }
+    }
+
     // ASTNodeを更新
     fn add_neighbor_node(&mut self, left: Link, right: Link) {
         self.left = left;
@@ -122,7 +133,7 @@ relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add        = mul ("+" mul | "-" mul)*
 mul        = unary ("*" unary | "/" unary)*
 unary      = ("+" | "-")? primary
-primary    = num | ident | "(" expr ")"
+primary    = num | | ident ("(" ")")? | "(" expr ")"
 */
 
 type Link = Option<Box<ASTNode>>;
@@ -432,7 +443,7 @@ impl AST {
         return AST::primary(token_list);
     }
 
-    // primary    = num | ident | "(" expr ")"
+    // primary    = num | ident ("(" ")")? | "(" expr ")"
     fn primary(token_list: &mut TokenList) -> Link {
         if token_list.comsume_parentheses(ParenthesesKind::LeftParentheses) {
             let node = AST::expr(token_list);
@@ -447,6 +458,54 @@ impl AST {
                     error_exit("parenthes is not closed", tail_pos);
                 }
             }
+        }
+
+        // 関数呼び出しの場合
+        // 識別子の次が(の場合には関数呼び出しトークンとしている
+        if let Some(function_name) = token_list.consume_functioncall() {  
+            // "(" token取り出し
+            token_list.pop_head();
+            let mut function_call_node = ASTNode::new_funtioncall_node(function_name);
+            let mut args_vec: Vec<Link> = vec![];   
+            while !token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
+                if !token_list.is_empty() {
+
+                    if args_vec.len() == 6 {
+                        if let Some(valid_token) = token_list.pop_head() {
+                            error_exit("canoot take to much argument", valid_token.token_pos);
+                        } else {
+                            // テキスト終端に要求エラーを立てる
+                            let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
+                            error_exit("function call is not closed", tail_pos);
+                        }
+                    }
+
+                    let primarykind = token_list.expect_primary();
+                    let primary_node = ASTNode::new_primary_node(primarykind);
+                    args_vec.push(Some(Box::new(primary_node)));
+                    
+                    if !token_list.consume_commma() {
+                        if token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
+                            break;
+                        }
+
+                        if let Some(valid_token) = token_list.pop_head() {
+                            error_exit("function args must be separated by comma", valid_token.token_pos);
+                        } else {
+                            // テキスト終端に要求エラーを立てる
+                            let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
+                            error_exit("function call is not closed", tail_pos);
+                        }
+                    }
+
+                } else {
+                    // テキスト終端に要求エラーを立てる
+                    let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
+                    error_exit("function call is not closed", tail_pos);
+                }
+            }
+            function_call_node.vec = Some(args_vec);
+            return Some(Box::new(function_call_node));
         }
 
         let primarykind = token_list.expect_primary();

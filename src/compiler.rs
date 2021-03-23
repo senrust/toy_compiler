@@ -164,6 +164,26 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
             instructions.pop();
         }
         return;
+    } else if let ASTNodeKind::FunctionCall(function_name) = node.node_kind {
+        let args_vec = node.vec.unwrap();
+        for (arg_counnt, arg) in args_vec.into_iter().enumerate() {
+            compile_node(*arg.unwrap(), instructions);
+            if arg_counnt == 0 {
+                instructions.push(format!("    pop rdi"));
+            } else if arg_counnt == 1 {
+                instructions.push(format!("    pop rsi"));
+            } else if arg_counnt == 2 {
+                instructions.push(format!("    pop rdx"));
+            } else if arg_counnt == 3 {
+                instructions.push(format!("    pop rcx"));
+            } else if arg_counnt == 4 {
+                instructions.push(format!("    pop r8"));
+            } else if arg_counnt == 5 {
+                instructions.push(format!("    pop r9"));
+            }
+        }
+        instructions.push(format!("    call {}", function_name));
+        return;
     }
 
     // 渡されたastは正しいのでunwrapしても問題ない

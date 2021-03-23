@@ -9,6 +9,7 @@ mod tests {
             .arg("-o")
             .arg("./a.out")
             .arg("tmp.s")
+            .arg("include_func.c")
             .output()
             .expect("failed to asemble binary");
     }

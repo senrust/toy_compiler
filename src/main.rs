@@ -18,7 +18,11 @@ fn write_header<T: Write>(buf: &mut T) {
 fn write_prologue<T: Write>(buf: &mut T, local_variable_size: usize) {
     writeln!(buf, "    push rbp").unwrap();
     writeln!(buf, "    mov rbp, rsp").unwrap();
-    writeln!(buf, "    sub rsp, {}", local_variable_size).unwrap();
+    if local_variable_size / 16 == 0 {
+        writeln!(buf, "    sub rsp, {}", local_variable_size + 8).unwrap();
+    } else {
+        writeln!(buf, "    sub rsp, {}", local_variable_size).unwrap();
+    }
 }
 
 fn write_epilogue<T: Write>(buf: &mut T) {
@@ -49,6 +53,7 @@ pub fn output_asembly(input_text: &str) {
     write_epilogue(&mut file);
     write_footer(&mut file);
 }
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {

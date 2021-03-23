@@ -96,7 +96,9 @@ pub enum TokenKind {
     Operation(OperationKind),
     Parentheses(ParenthesesKind),
     Braces(BracesKind),
+    Comma,
     LocalVariable(usize),
+    FucntionCall(String),
     Assign,
     Return,
     While,
@@ -167,6 +169,44 @@ impl TokenList {
             }
             None => {
                 return false;
+            }
+        }
+    }
+
+    pub fn consume_commma(&mut self) -> bool {
+        match self.peek_head() {
+            Some(token) => {
+                if token.token_kind == TokenKind::Comma {
+                    self.pop_head();
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            None => {
+                return false;
+            }
+        }
+    }
+
+    pub fn consume_functioncall(&mut self) -> Option<String> {
+        match self.peek_head() {
+            Some(token) => {
+                match token.token_kind {
+                    TokenKind::FucntionCall(_) => {
+                        // 所有権を取り出し
+                        if let TokenKind::FucntionCall(function_name) = self.pop_head().unwrap().token_kind{
+                            return Some(function_name);
+                        }
+                        return None;
+                    }
+                    _ => {
+                        return None;
+                    }
+                }
+            }
+            None => {
+                return None;
             }
         }
     }
@@ -374,7 +414,7 @@ impl Drop for TokenList {
 fn is_operational_char(ch: &char) -> bool {
     if *ch == '=' || *ch == '+' || *ch == '-' || *ch == '*' || *ch == '/' 
     || *ch == ';' || *ch == '{' || *ch == '}' || *ch == '[' || *ch == ']'
-    || *ch == '(' || *ch == ')'|| *ch == '\n' || *ch == ' ' {
+    || *ch == '(' || *ch == ')'|| *ch == '\n' || *ch == ',' || *ch == ' ' {
         true
     } else {
         false
@@ -415,6 +455,8 @@ fn pop_operation(char_queue: &mut VecDeque<char>) -> TokenKind {
         return TokenKind::Braces(BracesKind::RightBraces);
     } else if op_string == ";" {
         return TokenKind::StateMentEnd;
+    } else if op_string == "," {
+        return TokenKind::Comma;
     }
 
     // <、<=、>、>=、==、!= に対応するため, 次が=ならばそれも取り出す
@@ -482,6 +524,17 @@ fn pop_ascii_token(
         return TokenKind::Else;
     } else if local_varibale == "for" {
         return TokenKind::For;
+    }
+
+    for ch in char_queue.iter() {
+        if *ch == ' ' {
+            continue;
+        }
+        if *ch == '(' {
+            return TokenKind::FucntionCall(local_varibale);
+        } else {
+            break;
+        }
     }
 
     for (index, exist_variable) in local_variable_set.iter().enumerate() {
