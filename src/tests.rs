@@ -55,6 +55,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(target_arch = "arm"))]
     fn assembley_test() {
         use crate::output_asembly;
         use std::fs;

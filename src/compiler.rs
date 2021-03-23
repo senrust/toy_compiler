@@ -102,7 +102,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         instructions.push(format!("    je .Lelse{}", instructions.else_count));
         compile_node(*instruction_node, instructions);
         instructions.push(format!("    jmp .Lend{}", instructions.end_count));
-        instructions.push(format!(".Lelse{}", instructions.end_count));
+        instructions.push(format!(".Lelse{}:", instructions.end_count));
         // elseが付属するifの場合, if(A) B else C
         // のCは node.vec[0]にある.
         // AST構築の段階でelse文のチェックをしているのでunwrapして良い
@@ -116,7 +116,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
     } else if let ASTNodeKind::While = node.node_kind {
         let condition_node = node.left.take().unwrap();
         let instruction_node = node.right.take().unwrap();
-        instructions.push(format!(".Lbegin{}", instructions.begin_count));
+        instructions.push(format!(".Lbegin{}:", instructions.begin_count));
         compile_node(*condition_node, instructions);
         instructions.push(format!("    pop rax"));
         instructions.push(format!("    cmp rax, 0"));
@@ -133,7 +133,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         if let Some(initial_instruction) = instruction_vec[0].take() {
             compile_node(*initial_instruction, instructions);
         }
-        instructions.push(format!(".Lbegin{}", instructions.begin_count));
+        instructions.push(format!(".Lbegin{}:", instructions.begin_count));
         if let Some(judge_instruction) = instruction_vec[1].take() {
             compile_node(*judge_instruction, instructions);
         }
@@ -144,6 +144,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         if let Some(update_instruction) = instruction_vec[2].take() {
             compile_node(*update_instruction, instructions);
         }
+        instructions.push(format!("    pop rax"));
         instructions.push(format!("    jmp .Lbegin{}", instructions.begin_count));
         instructions.push(format!(".Lend{}:", instructions.end_count));
         instructions.end_count_up(); 
@@ -152,14 +153,16 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
     } else if let ASTNodeKind::MultStmt = node.node_kind {
         // 複文の場合はvecの中に各命令が含まれている
         let node_vec = node.vec.unwrap();
-        for node in node_vec {
-            let node = node.unwrap();
-            compile_node(*node, instructions);
-            instructions.push(format!("    pop rax"));
+        if node_vec.len() != 0 {
+            for node in node_vec {
+                let node = node.unwrap();
+                compile_node(*node, instructions);
+                instructions.push(format!("    pop rax"));
+            }
+            // 文終了時にpop raxを実行するので, 
+            // 複文の最後のpop raxは取り除く
+            instructions.pop();
         }
-        // 文終了時にpop raxを実行するので, 
-        // 複文の最後のpop raxは取り除く
-        instructions.pop();
         return;
     }
 
@@ -230,7 +233,7 @@ pub fn compile_astvec(ast_vec: ASTVec) -> Vec<String> {
     let mut instructions = Instructions::new();
     for ast in ast_vec.vec {
         compile_ast(ast, &mut instructions);
-        instructions.push(format!("    pop rax"));
+        // instructions.push(format!("    pop rax"));
     }
     instructions.vec
 }

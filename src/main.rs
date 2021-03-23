@@ -22,6 +22,7 @@ fn write_prologue<T: Write>(buf: &mut T, local_variable_size: usize) {
 }
 
 fn write_epilogue<T: Write>(buf: &mut T) {
+    writeln!(buf, "    pop rax").unwrap();
     writeln!(buf, "    mov rsp, rbp").unwrap();
     writeln!(buf, "    pop rbp").unwrap();
 }
