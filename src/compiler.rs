@@ -183,6 +183,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
             }
         }
         instructions.push(format!("    call {}", function_name));
+        instructions.push(format!("    push rax"));
         return;
     }
 
@@ -253,7 +254,7 @@ pub fn compile_astvec(ast_vec: ASTVec) -> Vec<String> {
     let mut instructions = Instructions::new();
     for ast in ast_vec.vec {
         compile_ast(ast, &mut instructions);
-        // instructions.push(format!("    pop rax"));
+        instructions.push(format!("    pop rax"));
     }
     instructions.vec
 }

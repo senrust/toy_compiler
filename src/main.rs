@@ -18,15 +18,16 @@ fn write_header<T: Write>(buf: &mut T) {
 fn write_prologue<T: Write>(buf: &mut T, local_variable_size: usize) {
     writeln!(buf, "    push rbp").unwrap();
     writeln!(buf, "    mov rbp, rsp").unwrap();
-    if local_variable_size / 16 == 0 {
+    if local_variable_size == 0 {
+        // 何もしない
+    } else if local_variable_size  % 16 != 0 {
         writeln!(buf, "    sub rsp, {}", local_variable_size + 8).unwrap();
-    } else {
+    } else  {
         writeln!(buf, "    sub rsp, {}", local_variable_size).unwrap();
-    }
+    } 
 }
 
 fn write_epilogue<T: Write>(buf: &mut T) {
-    writeln!(buf, "    pop rax").unwrap();
     writeln!(buf, "    mov rsp, rbp").unwrap();
     writeln!(buf, "    pop rbp").unwrap();
 }
