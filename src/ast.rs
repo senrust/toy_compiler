@@ -249,7 +249,8 @@ impl AST {
             let mut for_node = ASTNode::new_for_node();
             let mut for_vec: Vec<Link> = vec![];    // for文用のvecを作成
             // 初期化式
-            if token_list.consume_statement_end() {
+            if token_list.is_statement_end() {
+                token_list.pop_head();
                 for_vec.push(None);
             } else {
                 for_vec.push(AST::expr(token_list));
@@ -263,8 +264,9 @@ impl AST {
                     }
                 }
             }
-            // 更新式
-            if token_list.consume_statement_end() {
+            // 判定式
+            if token_list.is_statement_end() {
+                token_list.pop_head();
                 for_vec.push(None);
             } else {
                 for_vec.push(AST::expr(token_list));
@@ -278,8 +280,9 @@ impl AST {
                     }
                 }
             }
-            // 判定式
-            if token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
+            // 更新式
+            if token_list.is_parentheses(ParenthesesKind::RightParentheses) {
+                token_list.pop_head();
                 for_vec.push(None);
             } else {
                 for_vec.push(AST::expr(token_list));

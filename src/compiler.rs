@@ -23,6 +23,10 @@ impl Instructions {
         self.vec.push(instruction)
     }
 
+    fn pop(&mut self) {
+        self.vec.pop();
+    }
+
     fn end_count_up(&mut self) {
         self.end_count += 1;
     }
@@ -80,7 +84,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         return;
     } else if let ASTNodeKind::If = node.node_kind {
         let condition_node = node.left.take().unwrap();
-        let instruction_node = node.left.take().unwrap();
+        let instruction_node = node.right.take().unwrap();
         compile_node(*condition_node, instructions);
         instructions.push(format!("    pop rax"));
         instructions.push(format!("    cmp rax, 0"));
@@ -91,7 +95,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         return;
     } else if let ASTNodeKind::IfElse = node.node_kind {
         let condition_node = node.left.take().unwrap();
-        let instruction_node = node.left.take().unwrap();
+        let instruction_node = node.right.take().unwrap();
         compile_node(*condition_node, instructions);
         instructions.push(format!("    pop rax"));
         instructions.push(format!("    cmp rax, 0"));
@@ -111,7 +115,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         return;
     } else if let ASTNodeKind::While = node.node_kind {
         let condition_node = node.left.take().unwrap();
-        let instruction_node = node.left.take().unwrap();
+        let instruction_node = node.right.take().unwrap();
         instructions.push(format!(".Lbegin{}", instructions.begin_count));
         compile_node(*condition_node, instructions);
         instructions.push(format!("    pop rax"));
@@ -153,6 +157,9 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
             compile_node(*node, instructions);
             instructions.push(format!("    pop rax"));
         }
+        // 文終了時にpop raxを実行するので, 
+        // 複文の最後のpop raxは取り除く
+        instructions.pop();
         return;
     }
 

@@ -3,9 +3,6 @@ mod tests {
     #[cfg(target_arch = "x86_64")]
     use std::process::Command;
 
-    use crate::ast;
-    use crate::tokenizer;
-
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     fn make_binary_from_asm() {
         Command::new("cc")
@@ -58,12 +55,10 @@ mod tests {
     }
 
     #[test]
-    fn ast_test() {
+    fn assembley_test() {
+        use crate::output_asembly;
         use std::fs;
-        let input_program = fs::read_to_string("./test/ast_test.txt").unwrap();
-        println!("try making ast of\n{}", input_program);
-        let mut token_list = tokenizer::text_tokenizer(&input_program);
-        ast::ASTVec::make_ast_vec(&mut token_list);
-        println!("suceeded!");
+        let input_program = fs::read_to_string("./test/binary_test.txt").unwrap();
+        output_asembly(&input_program);
     }
 }

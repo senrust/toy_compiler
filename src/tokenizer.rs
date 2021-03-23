@@ -171,6 +171,21 @@ impl TokenList {
         }
     }
 
+    pub fn is_parentheses(&self, parenthese: ParenthesesKind) -> bool {
+        match self.peek_head() {
+            Some(token) => {
+                if token.token_kind == TokenKind::Parentheses(parenthese) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            None => {
+                return false;
+            }
+        }
+    }
+
     pub fn comsume_parentheses(&mut self, parenthese: ParenthesesKind) -> bool {
         match self.peek_head() {
             Some(token) => {
@@ -278,6 +293,21 @@ impl TokenList {
         false
     } 
 
+    pub fn is_statement_end(&self) -> bool {
+        match self.peek_head() {
+            Some(token) => {
+                if token.token_kind == TokenKind::StateMentEnd {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            None => {
+                return false;
+            }
+        }
+    }
+
     pub fn consume_statement_end(&mut self) -> bool {
         let token = self.pop_head();
         let error_text = "expect ; at end of statement";
@@ -344,7 +374,7 @@ impl Drop for TokenList {
 fn is_operational_char(ch: &char) -> bool {
     if *ch == '=' || *ch == '+' || *ch == '-' || *ch == '*' || *ch == '/' 
     || *ch == ';' || *ch == '{' || *ch == '}' || *ch == '[' || *ch == ']'
-    || *ch == '\n' || *ch == ' ' {
+    || *ch == '(' || *ch == ')'|| *ch == '\n' || *ch == ' ' {
         true
     } else {
         false
