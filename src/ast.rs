@@ -1,4 +1,4 @@
-use super::error::error_exit;
+use super::error::{error_exit, invalid_token_exit};
 use super::tokenizer::{OperationKind, ParenthesesKind, BracesKind, TokenList, PROGRAM_TEXT};
 
 pub enum PrimaryNodeKind {
@@ -266,13 +266,7 @@ impl AST {
             } else {
                 for_vec.push(AST::expr(token_list));
                 if !token_list.consume_statement_end() {
-                    if let Some(valid_token) = token_list.pop_head() {
-                        error_exit("for initialzer must be expression", valid_token.token_pos);
-                    } else {
-                        // テキスト終端に要求エラーを立てる
-                        let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
-                        error_exit("for initialzer must be expression", tail_pos);
-                    }
+                    invalid_token_exit("for initialzer must be expression", token_list);
                 }
             }
             // 判定式
@@ -282,13 +276,7 @@ impl AST {
             } else {
                 for_vec.push(AST::expr(token_list));
                 if !token_list.consume_statement_end() {
-                    if let Some(valid_token) = token_list.pop_head() {
-                        error_exit("for judge must be expression", valid_token.token_pos);
-                    } else {
-                        // テキスト終端に要求エラーを立てる
-                        let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
-                        error_exit("for judge must be expression", tail_pos);
-                    }
+                    invalid_token_exit("for judge must be expression", token_list);
                 }
             }
             // 更新式
@@ -298,13 +286,7 @@ impl AST {
             } else {
                 for_vec.push(AST::expr(token_list));
                 if !token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
-                    if let Some(valid_token) = token_list.pop_head() {
-                        error_exit("for updater must be expression", valid_token.token_pos);
-                    } else {
-                        // テキスト終端に要求エラーを立てる
-                        let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
-                        error_exit("for updater must be expression", tail_pos);
-                    }
+                    invalid_token_exit("for updater must be expression", token_list);
                 }
             }
             for_node.left = AST::stmt(token_list);
@@ -450,13 +432,7 @@ impl AST {
             if token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
                 return node;
             } else {
-                if let Some(valid_token) = token_list.pop_head() {
-                    error_exit("parenthes is not closed", valid_token.token_pos);
-                } else {
-                    // テキスト終端に要求エラーを立てる
-                    let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
-                    error_exit("parenthes is not closed", tail_pos);
-                }
+                invalid_token_exit("parenthes is not closed", token_list);
             }
         }
 
@@ -513,23 +489,77 @@ impl AST {
         return Some(Box::new(primary_node));
     }
 }
-// ASTはstmt単位で作成し,
-// ASTのリストをASTVecとして保存する
-pub struct ASTVec {
-    pub vec: Vec<AST>,
+
+pub struct FuntionInfo {
+    pub function_name: String,
+    pub args_count: usize,
+    pub local_stack_size: usize,
 }
 
-impl ASTVec {
-    fn new() -> ASTVec {
-        ASTVec { vec: vec![] }
+// ASTはstmt単位で作成し,
+// ASTのリストをASTVecとして保存する
+pub struct FunctionAST {
+    pub function_ast: AST,
+    pub function_info: FuntionInfo,
+}
+
+fn pop_function_info(token_list: &mut TokenList) ->  FuntionInfo {
+    if let Some(function_name) = token_list.consume_function_definition() {
+        if token_list.comsume_parentheses(ParenthesesKind::LeftParentheses) {
+            let mut args_count = 0;
+            loop{
+                if token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
+                    break;
+                }
+                token_list.expect_variable();
+                args_count += 1;
+                if args_count == 7 {
+                    invalid_token_exit("too many argument", token_list);
+                }
+                if token_list.consume_commma() {
+                    continue;
+                } else {
+                    if token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
+                        break;
+                    } else {
+                        invalid_token_exit("function argument is not coorect", token_list);
+                    }
+                }
+            }
+            let function_info = FuntionInfo {
+                function_name,
+                args_count,
+                local_stack_size: token_list.local_stack_size,
+            };
+            function_info
+        } else {
+            invalid_token_exit("function  definition requires '('", token_list);
+        }
+    } else {
+        invalid_token_exit("invalid function defition", token_list);
+    }
+}
+
+impl FunctionAST {
+    fn new(token_list: &mut TokenList) -> FunctionAST {
+        let function_info: FuntionInfo  = pop_function_info(token_list);
+        let function_ast: AST = AST::new(token_list);
+
+
+        let fucntion_ast = FunctionAST { 
+            function_ast,
+            function_info,
+        };
+
+        // 関数は複文{}なのでASTは1つなのでここには来ないはず
+        if !token_list.is_empty() {
+            error_exit("some error happened", token_list.pop_head().unwrap().token_pos);
+        }
+        fucntion_ast
     }
 
-    pub fn make_ast_vec(token_list: &mut TokenList) -> ASTVec {
-        let mut ast_vec = ASTVec::new();
-        while !token_list.is_empty() {
-            let ast: AST = AST::new(token_list);
-            ast_vec.vec.push(ast);
-        }
-        ast_vec
+    pub fn make_function_ast(token_list: &mut TokenList) -> FunctionAST {
+        let fucntion_ast = FunctionAST::new(token_list);
+        fucntion_ast
     }
 }

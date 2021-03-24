@@ -98,7 +98,7 @@ pub enum TokenKind {
     Braces(BracesKind),
     Comma,
     LocalVariable(usize),
-    FucntionDifinition(String),
+    FucntionDefinition(String),
     FucntionCall(String),
     Assign,
     Return,
@@ -186,6 +186,28 @@ impl TokenList {
             }
             None => {
                 return false;
+            }
+        }
+    }
+
+    pub fn consume_function_definition(&mut self) -> Option<String> {
+        match self.peek_head() {
+            Some(token) => {
+                match token.token_kind {
+                    TokenKind::FucntionDefinition(_) => {
+                        // 所有権を取り出し
+                        if let TokenKind::FucntionDefinition(function_name) = self.pop_head().unwrap().token_kind{
+                            return Some(function_name);
+                        }
+                        return None;
+                    }
+                    _ => {
+                        return None;
+                    }
+                }
+            }
+            None => {
+                return None;
             }
         }
     }
@@ -393,6 +415,27 @@ impl TokenList {
             }
         }
     }
+
+    pub fn expect_variable(&mut self) -> PrimaryNodeKind {
+        let token = self.pop_head();
+        let error_text = "expect variable token";
+        match token {
+            Some(valid_token) => match valid_token.token_kind {
+                TokenKind::LocalVariable(offset) => {
+                    return PrimaryNodeKind::LocalVariable(offset);
+                }
+                _ => {
+                    error_exit(error_text, valid_token.token_pos);
+                }
+            },
+            // Noneの場合はトークン終了を意味する
+            None => {
+                // テキスト終端の1つ後ろに要求エラーを立てる
+                let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
+                error_exit(error_text, tail_pos);
+            }
+        }
+    }
 }
 
 impl Drop for TokenList {
@@ -548,7 +591,7 @@ fn pop_identifier_token(
     TokenKind::LocalVariable(local_variable_set.len() * 8)
 }
 
-fn pop_function_difinition_token(char_queue: &mut VecDeque<char>,) -> Result<String, String> {
+fn pop_function_definition_token(char_queue: &mut VecDeque<char>,) -> Result<String, String> {
     let ch = char_queue.pop_front().unwrap();
     let mut function_name = format!("{}", ch);
 
@@ -702,9 +745,9 @@ pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
 
         if tokenizer_info.state == TokenizerState::Global {
             if ch.is_ascii_alphabetic() {
-                match pop_function_difinition_token(&mut char_queue){
+                match pop_function_definition_token(&mut char_queue){
                     Ok(function_name) => {
-                        new_token.token_kind = TokenKind::FucntionDifinition(function_name);
+                        new_token.token_kind = TokenKind::FucntionDefinition(function_name);
                     }
                     Err(err_string) => {
                         error_exit(&err_string, token_pos);
@@ -715,7 +758,7 @@ pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
                 local_varibales = vec![];
                 tokenizer_info.state = TokenizerState::Local;
             } else {
-                error_exit("only function difinition is allowed in global area", token_pos);
+                error_exit("only function definition is allowed in global area", token_pos);
             }
         } else if ch.is_digit(10) {
             match pop_digit(&mut char_queue){

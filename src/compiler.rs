@@ -1,5 +1,5 @@
 use super::tokenizer::OperationKind;
-use crate::ast::{ASTNode, ASTNodeKind, ASTVec, PrimaryNodeKind, AST};
+use crate::ast::{ASTNode, ASTNodeKind, FunctionAST, FuntionInfo, PrimaryNodeKind, AST};
 use crate::error::error_exit;
 
 struct Instructions{
@@ -239,7 +239,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
 }
 
 // astからアセンブラを出力する
-// 渡されるastはrooがNoneか, 正しいASTである
+// 渡されるastはrootがNoneか, 正しいASTである
 fn compile_ast(mut ast: AST, instructions: &mut Instructions) {
     match ast.root.take() {
         Some(top_node) => {
@@ -249,12 +249,52 @@ fn compile_ast(mut ast: AST, instructions: &mut Instructions) {
     }
 }
 
-// ast_vecからアセンブラを出力する
-pub fn compile_astvec(ast_vec: ASTVec) -> Vec<String> {
-    let mut instructions = Instructions::new();
-    for ast in ast_vec.vec {
-        compile_ast(ast, &mut instructions);
-        instructions.push(format!("    pop rax"));
+fn compile_function_prologue(function_info: FuntionInfo, instructions: &mut Instructions) {
+    instructions.push(format!(""));
+    instructions.push(format!("{}:", function_info.function_name));
+    instructions.push(format!("    push rbp"));
+    instructions.push(format!("    mov rbp, rsp"));
+    // AST側で7個以上の引数は拒否している
+    for arg_index in 0..function_info.args_count {
+        if arg_index == 0 {
+            instructions.push(format!("    mov [rbp - 8], rdi"));
+        } else if arg_index == 1 {
+            instructions.push(format!("    mov [rbp - 16], rsi"));
+        } else if arg_index == 2 {
+            instructions.push(format!("    mov [rbp - 24], rdx"));
+        } else if arg_index == 3 {
+            instructions.push(format!("    mov [rbp - 32], rcx"));
+        } else if arg_index == 4 {
+            instructions.push(format!("    mov [rbp - 40], r8"));
+        } else if arg_index == 5 {
+            instructions.push(format!("    mov [rbp - 48], r9"));
+        }
     }
+
+    // スタックサイズは引数なので, 引数分引いた分スタックを下げる
+    let local_variable_size = function_info.local_stack_size;
+
+
+    if local_variable_size % 16 == 0 &&  local_variable_size != 0 {
+        instructions.push(format!("    sub rsp, {}", local_variable_size));
+    } else if local_variable_size  % 16 != 0 &&  local_variable_size != 0 {
+        instructions.push(format!("    sub rsp, {}", local_variable_size + 8));
+    }
+}
+
+fn compile_function_epilogue(instructions: &mut Instructions) {
+    instructions.push(format!("    pop rax"));
+    instructions.push(format!("    mov rsp, rbp"));
+    instructions.push(format!("    pop rbp"));
+    instructions.push(format!("    ret"));
+}
+
+
+// function_astからアセンブラを出力する
+pub fn compile_function_ast(function_ast: FunctionAST) -> Vec<String> {
+    let mut instructions = Instructions::new();
+    compile_function_prologue(function_ast.function_info, &mut instructions);
+    compile_ast(function_ast.function_ast, &mut instructions);
+    compile_function_epilogue(&mut instructions);
     instructions.vec
 }

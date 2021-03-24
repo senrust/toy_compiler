@@ -39,7 +39,7 @@ mod tests {
         let mut input_program = format!("");
         for line_result in lines_iter {
             let line = line_result.unwrap();
-            input_program = format!("{}\n{}", input_program, line);
+            input_program = input_program + &line;
         }
         output_asembly(&input_program);
         make_binary_from_asm();
