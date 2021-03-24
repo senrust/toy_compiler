@@ -12,10 +12,10 @@ fn write_header<T: Write>(buf: &mut T) {
     writeln!(buf, ".intel_syntax noprefix").unwrap();
     writeln!(buf, ".globl main").unwrap();
     writeln!(buf, "").unwrap();
-    writeln!(buf, "main:").unwrap();
 }
 
 fn write_prologue<T: Write>(buf: &mut T, local_variable_size: usize) {
+    writeln!(buf, "main:").unwrap();
     writeln!(buf, "    push rbp").unwrap();
     writeln!(buf, "    mov rbp, rsp").unwrap();
     if local_variable_size == 0 {
@@ -42,17 +42,18 @@ fn write_operation<T: Write>(buf: &mut T, instruction: String) {
 
 pub fn output_asembly(input_text: &str) {
     let mut file = BufWriter::new(fs::File::create("tmp.s").unwrap());
-    let mut token_list = tokenizer::text_tokenizer(input_text);
-    let ast_vec = ast::ASTVec::make_ast_vec(&mut token_list);
-    let instruction_vec = compiler::compile_astvec(ast_vec);
-
     write_header(&mut file);
-    write_prologue(&mut file, token_list.local_stack_size);
-    instruction_vec
+
+    let token_list_vec = tokenizer::text_tokenizer(input_text);
+    for mut token_list in token_list_vec {
+        let ast_vec = ast::ASTVec::make_ast_vec(&mut token_list);
+        let instruction_vec = compiler::compile_astvec(ast_vec);
+        instruction_vec
         .into_iter()
         .for_each(|instruction| write_operation(&mut file, instruction));
-    write_epilogue(&mut file);
-    write_footer(&mut file);
+        write_epilogue(&mut file);
+        write_footer(&mut file);
+    }
 }
 
 fn main() {

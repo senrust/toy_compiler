@@ -98,6 +98,7 @@ pub enum TokenKind {
     Braces(BracesKind),
     Comma,
     LocalVariable(usize),
+    FucntionDifinition(String),
     FucntionCall(String),
     Assign,
     Return,
@@ -493,7 +494,7 @@ fn pop_operation(char_queue: &mut VecDeque<char>) -> TokenKind {
     }
 }
 
-fn pop_ascii_token(
+fn pop_identifier_token(
     char_queue: &mut VecDeque<char>,
     local_variable_set: &mut Vec<String>,
 ) -> TokenKind {
@@ -547,6 +548,39 @@ fn pop_ascii_token(
     TokenKind::LocalVariable(local_variable_set.len() * 8)
 }
 
+fn pop_function_difinition_token(char_queue: &mut VecDeque<char>,) -> Result<String, String> {
+    let ch = char_queue.pop_front().unwrap();
+    let mut function_name = format!("{}", ch);
+
+    // ascii, _, 0~9 が続くうちは取り出す
+    loop {
+        if let Some(next_ch_ref) = char_queue.front() {
+            if next_ch_ref.is_ascii_alphabetic() || *next_ch_ref == '_' || next_ch_ref.is_digit(10) {
+                let next_ch = char_queue.pop_front().unwrap();
+                function_name.push(next_ch);
+            } else {
+                break;
+            }
+        } else {
+            return Err(format!("function definition is not correct"));
+        }
+    }
+
+    if function_name == "return" {
+        return Err(format!("return is invalid function name"));
+    } else if function_name == "while" {
+        return Err(format!("while is invalid function name"));
+    } else if function_name == "if" {
+        return Err(format!("if is invalid function name"));
+    } else if function_name == "else" {
+        return Err(format!("else is invalid function name"));
+    } else if function_name == "for" {
+        return Err(format!("for is invalid function name"));
+    }
+
+    return Ok(function_name);
+}
+
 // プログラム文終端までコメントの場合はOk(true)を返す
 fn skip_comment(char_queue: &mut VecDeque<char>) -> Result<(), ()> {
     if let Some(ch0) = char_queue.get(0) {
@@ -597,8 +631,28 @@ fn skip_comment(char_queue: &mut VecDeque<char>) -> Result<(), ()> {
     Ok(())
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum TokenizerState  {
+    Global,
+    Local,
+}
+
+struct TokenizerInfo {
+    state: TokenizerState,
+    nest_level: usize,
+}
+
+impl TokenizerInfo {
+    fn new() ->Self {
+        TokenizerInfo {
+            state: TokenizerState::Global,
+            nest_level: 0,
+        }
+    }
+}
+
 // 入力テキストのトークン連結リストを作成する
-pub fn text_tokenizer(text: &str) -> TokenList {
+pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
     // グローバルなPROGRAM_TEXTにミュータブルなcursorを用意して一文字ずつ参照, cursorを移動したいが,
     // グローバル変数はアクセスが面倒なので,
     // スタック内にVecDequeを用意して, トークン化はそれで行う
@@ -613,10 +667,14 @@ pub fn text_tokenizer(text: &str) -> TokenList {
     let program_text = ProgramText::new(program_char);
     PROGRAM_TEXT.set(program_text).ok();
     let mut char_queue = VecDeque::from_iter(text.chars());
+    let mut tokenlist_vec: Vec<TokenList> = vec![];
+
     let mut tokenlist = TokenList::new();
     let mut current_token = &mut tokenlist.head;
+
     let text_len = char_queue.len();
     let mut local_varibales: Vec<String> = vec![];
+    let mut tokenizer_info = TokenizerInfo::new();
 
     while !char_queue.is_empty() {
         match skip_comment(&mut char_queue) {
@@ -637,12 +695,29 @@ pub fn text_tokenizer(text: &str) -> TokenList {
             char_queue.pop_front();
             continue;
         }
-        
+
         // 解析トークンの位置はテキストの長さ-未処理文字数で求まる
         let token_pos = text_len - char_queue.len();
         let mut new_token = Token::new(token_pos);
 
-        if ch.is_digit(10) {
+        if tokenizer_info.state == TokenizerState::Global {
+            if ch.is_ascii_alphabetic() {
+                match pop_function_difinition_token(&mut char_queue){
+                    Ok(function_name) => {
+                        new_token.token_kind = TokenKind::FucntionDifinition(function_name);
+                    }
+                    Err(err_string) => {
+                        error_exit(&err_string, token_pos);
+                    }
+                }
+                // ロカール変数配列初期化
+                // 引数もローカル変数として扱うため, ここで初期化する
+                local_varibales = vec![];
+                tokenizer_info.state = TokenizerState::Local;
+            } else {
+                error_exit("only function difinition is allowed in global area", token_pos);
+            }
+        } else if ch.is_digit(10) {
             match pop_digit(&mut char_queue){
                 Ok(num) => {
                     new_token.token_kind = TokenKind::Number(num);
@@ -654,8 +729,32 @@ pub fn text_tokenizer(text: &str) -> TokenList {
             }
         } else if ch.is_ascii_punctuation() {
             new_token.token_kind = pop_operation(&mut char_queue);
+
+            // {}でネストレベルを判定
+            if new_token.token_kind == TokenKind::Braces(BracesKind::LeftBraces) {
+                tokenizer_info.nest_level += 1;
+            } else if new_token.token_kind == TokenKind::Braces(BracesKind::RightBraces) {
+                tokenizer_info.nest_level -= 1;
+                if tokenizer_info.nest_level == 0 {
+                    tokenizer_info.state = TokenizerState::Global;
+                    // tokenlistを更新して
+                    match current_token {
+                        Some(token) => {
+                            token.next = Some(Box::new(new_token)); 
+                        }
+                        None => {
+                            *current_token = Some(Box::new(new_token));
+                        }
+                    }
+                    tokenlist.local_stack_size = local_varibales.len() * 8;
+                    tokenlist_vec.push(tokenlist);
+                    tokenlist = TokenList::new();
+                    current_token = &mut tokenlist.head;
+                    continue;
+                }
+            }
         } else if ch.is_ascii_alphabetic() {
-            new_token.token_kind = pop_ascii_token(&mut char_queue, &mut local_varibales);
+            new_token.token_kind = pop_identifier_token(&mut char_queue, &mut local_varibales);
         }
 
         if new_token.token_kind == TokenKind::InvalidToken {
@@ -672,6 +771,5 @@ pub fn text_tokenizer(text: &str) -> TokenList {
             }
         }
     }
-    tokenlist.local_stack_size = local_varibales.len() * 8;
-    tokenlist
+    tokenlist_vec
 }
