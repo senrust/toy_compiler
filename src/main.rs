@@ -26,8 +26,8 @@ pub fn output_asembly(input_text: &str) {
         let function_ast = ast::FunctionAST::make_function_ast(&mut token_list);
         let instruction_vec = compiler::compile_function_ast(function_ast);
         instruction_vec
-        .into_iter()
-        .for_each(|instruction| write_operation(&mut file, instruction));
+            .into_iter()
+            .for_each(|instruction| write_operation(&mut file, instruction));
     }
 }
 

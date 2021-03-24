@@ -47,7 +47,7 @@ impl ProgramText {
         // ただし先頭行の場合はposが0を指している
         if pos != 0 {
             pos += 1;
-        } 
+        }
 
         let mut curpos = 0;
         let mut line = 1;
@@ -88,7 +88,6 @@ pub enum BracesKind {
     LeftBraces,
     RightBraces,
 }
-
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
@@ -196,7 +195,9 @@ impl TokenList {
                 match token.token_kind {
                     TokenKind::FucntionDefinition(_) => {
                         // 所有権を取り出し
-                        if let TokenKind::FucntionDefinition(function_name) = self.pop_head().unwrap().token_kind{
+                        if let TokenKind::FucntionDefinition(function_name) =
+                            self.pop_head().unwrap().token_kind
+                        {
                             return Some(function_name);
                         }
                         return None;
@@ -218,7 +219,9 @@ impl TokenList {
                 match token.token_kind {
                     TokenKind::FucntionCall(_) => {
                         // 所有権を取り出し
-                        if let TokenKind::FucntionCall(function_name) = self.pop_head().unwrap().token_kind{
+                        if let TokenKind::FucntionCall(function_name) =
+                            self.pop_head().unwrap().token_kind
+                        {
                             return Some(function_name);
                         }
                         return None;
@@ -345,8 +348,8 @@ impl TokenList {
         false
     }
 
-     // for文かチェック
-     pub fn consume_for(&mut self) -> bool {
+    // for文かチェック
+    pub fn consume_for(&mut self) -> bool {
         if let Some(first_token) = self.peek_head() {
             if first_token.token_kind == TokenKind::For {
                 self.pop_head();
@@ -354,7 +357,7 @@ impl TokenList {
             }
         }
         false
-    } 
+    }
 
     pub fn is_statement_end(&self) -> bool {
         match self.peek_head() {
@@ -456,9 +459,22 @@ impl Drop for TokenList {
 }
 
 fn is_operational_char(ch: &char) -> bool {
-    if *ch == '=' || *ch == '+' || *ch == '-' || *ch == '*' || *ch == '/' 
-    || *ch == ';' || *ch == '{' || *ch == '}' || *ch == '[' || *ch == ']'
-    || *ch == '(' || *ch == ')'|| *ch == '\n' || *ch == ',' || *ch == ' ' {
+    if *ch == '='
+        || *ch == '+'
+        || *ch == '-'
+        || *ch == '*'
+        || *ch == '/'
+        || *ch == ';'
+        || *ch == '{'
+        || *ch == '}'
+        || *ch == '['
+        || *ch == ']'
+        || *ch == '('
+        || *ch == ')'
+        || *ch == '\n'
+        || *ch == ','
+        || *ch == ' '
+    {
         true
     } else {
         false
@@ -473,7 +489,7 @@ fn pop_digit(char_queue: &mut VecDeque<char>) -> Result<i32, ()> {
             if next_ch.is_digit(10) {
                 let next_digit = char_queue.pop_front().unwrap().to_digit(10).unwrap() as i32;
                 num = num * 10 + next_digit;
-            } else if  is_operational_char(next_ch) {
+            } else if is_operational_char(next_ch) {
                 break;
             } else {
                 return Err(());
@@ -493,9 +509,9 @@ fn pop_operation(char_queue: &mut VecDeque<char>) -> TokenKind {
         return TokenKind::Parentheses(ParenthesesKind::LeftParentheses);
     } else if op_string == ")" {
         return TokenKind::Parentheses(ParenthesesKind::RightParentheses);
-    }  else if op_string == "{" {
+    } else if op_string == "{" {
         return TokenKind::Braces(BracesKind::LeftBraces);
-    }  else if op_string == "}" {
+    } else if op_string == "}" {
         return TokenKind::Braces(BracesKind::RightBraces);
     } else if op_string == ";" {
         return TokenKind::StateMentEnd;
@@ -547,7 +563,8 @@ fn pop_identifier_token(
     // ascii, _, 0~9 が続くうちは取り出す
     loop {
         if let Some(next_ch_ref) = char_queue.front() {
-            if next_ch_ref.is_ascii_alphabetic() || *next_ch_ref == '_' || next_ch_ref.is_digit(10) {
+            if next_ch_ref.is_ascii_alphabetic() || *next_ch_ref == '_' || next_ch_ref.is_digit(10)
+            {
                 let next_ch = char_queue.pop_front().unwrap();
                 local_varibale.push(next_ch);
             } else {
@@ -591,14 +608,15 @@ fn pop_identifier_token(
     TokenKind::LocalVariable(local_variable_set.len() * 8)
 }
 
-fn pop_function_definition_token(char_queue: &mut VecDeque<char>,) -> Result<String, String> {
+fn pop_function_definition_token(char_queue: &mut VecDeque<char>) -> Result<String, String> {
     let ch = char_queue.pop_front().unwrap();
     let mut function_name = format!("{}", ch);
 
     // ascii, _, 0~9 が続くうちは取り出す
     loop {
         if let Some(next_ch_ref) = char_queue.front() {
-            if next_ch_ref.is_ascii_alphabetic() || *next_ch_ref == '_' || next_ch_ref.is_digit(10) {
+            if next_ch_ref.is_ascii_alphabetic() || *next_ch_ref == '_' || next_ch_ref.is_digit(10)
+            {
                 let next_ch = char_queue.pop_front().unwrap();
                 function_name.push(next_ch);
             } else {
@@ -675,7 +693,7 @@ fn skip_comment(char_queue: &mut VecDeque<char>) -> Result<(), ()> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum TokenizerState  {
+enum TokenizerState {
     Global,
     Local,
 }
@@ -686,7 +704,7 @@ struct TokenizerInfo {
 }
 
 impl TokenizerInfo {
-    fn new() ->Self {
+    fn new() -> Self {
         TokenizerInfo {
             state: TokenizerState::Global,
             nest_level: 0,
@@ -701,7 +719,7 @@ pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
     // スタック内にVecDequeを用意して, トークン化はそれで行う
     let mut program_char: Vec<char> = text.chars().collect();
     if !program_char.is_empty() {
-        if let Some(ch) = program_char.get(program_char.len() -1) {
+        if let Some(ch) = program_char.get(program_char.len() - 1) {
             if *ch != '\n' {
                 program_char.push('\n');
             }
@@ -745,7 +763,7 @@ pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
 
         if tokenizer_info.state == TokenizerState::Global {
             if ch.is_ascii_alphabetic() {
-                match pop_function_definition_token(&mut char_queue){
+                match pop_function_definition_token(&mut char_queue) {
                     Ok(function_name) => {
                         new_token.token_kind = TokenKind::FucntionDefinition(function_name);
                     }
@@ -758,10 +776,13 @@ pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
                 local_varibales = vec![];
                 tokenizer_info.state = TokenizerState::Local;
             } else {
-                error_exit("only function definition is allowed in global area", token_pos);
+                error_exit(
+                    "only function definition is allowed in global area",
+                    token_pos,
+                );
             }
         } else if ch.is_digit(10) {
-            match pop_digit(&mut char_queue){
+            match pop_digit(&mut char_queue) {
                 Ok(num) => {
                     new_token.token_kind = TokenKind::Number(num);
                 }
@@ -783,7 +804,7 @@ pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
                     // tokenlistを更新して
                     match current_token {
                         Some(token) => {
-                            token.next = Some(Box::new(new_token)); 
+                            token.next = Some(Box::new(new_token));
                         }
                         None => {
                             *current_token = Some(Box::new(new_token));

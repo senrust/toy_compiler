@@ -37,9 +37,15 @@ mod tests {
         let mut lines_iter = BufReader::new(f).lines();
         let correct_output: i32 = lines_iter.next().unwrap().ok().unwrap().parse().unwrap();
         let mut input_program = format!("");
+        let mut counter = 0;
         for line_result in lines_iter {
             let line = line_result.unwrap();
-            input_program = input_program + &line;
+            if counter == 0 {
+                input_program = line;
+                counter += 1;
+            } else {
+                input_program = input_program + "\n" + &line;
+            }
         }
         output_asembly(&input_program);
         make_binary_from_asm();

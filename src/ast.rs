@@ -1,5 +1,5 @@
 use super::error::{error_exit, invalid_token_exit};
-use super::tokenizer::{OperationKind, ParenthesesKind, BracesKind, TokenList, PROGRAM_TEXT};
+use super::tokenizer::{BracesKind, OperationKind, ParenthesesKind, TokenList, PROGRAM_TEXT};
 
 pub enum PrimaryNodeKind {
     Number(i32),
@@ -15,7 +15,7 @@ pub enum ASTNodeKind {
     IfElse,
     While,
     For,
-    MultStmt,   // Mult statement, 複文
+    MultStmt, // Mult statement, 複文
     FunctionCall(String),
 }
 
@@ -99,7 +99,6 @@ impl ASTNode {
         }
     }
 
-
     fn new_funtioncall_node(function_name: String) -> ASTNode {
         ASTNode {
             node_kind: ASTNodeKind::FunctionCall(function_name),
@@ -119,7 +118,7 @@ impl ASTNode {
 /*
 AST 生成規則
 program    = stmt*
-stmt       = expr ";" 
+stmt       = expr ";"
             | stmt    = expr ";"
             | "if" "(" expr ")" stmt ("else" stmt)?
             | "while" "(" expr ")" stmt
@@ -150,7 +149,7 @@ impl AST {
         ast_tree
     }
 
-    //stmt = expr ";" 
+    //stmt = expr ";"
     //      | stmt    = expr ";"
     //      | "if" "(" expr ")" stmt ("else" stmt)?
     //      | "while" "(" expr ")" stmt
@@ -165,13 +164,13 @@ impl AST {
             return_node.add_neighbor_node(AST::expr(token_list), None);
             stmt_link = Some(Box::new(return_node));
             token_list.consume_statement_end();
-        } else if token_list.consume_if(){
+        } else if token_list.consume_if() {
             stmt_link = AST::stmt_if(token_list);
-        } else if token_list.consume_while(){
+        } else if token_list.consume_while() {
             stmt_link = AST::stmt_while(token_list);
         } else if token_list.consume_for() {
             stmt_link = AST::stmt_for(token_list);
-        } else if token_list.comsume_braces(BracesKind::LeftBraces){
+        } else if token_list.comsume_braces(BracesKind::LeftBraces) {
             // 複文の場合
             let mut stmt_node = ASTNode::new_multstmt_node();
             let mut stmt_vec: Vec<Link> = vec![];
@@ -184,13 +183,13 @@ impl AST {
             stmt_link = AST::expr(token_list);
             token_list.consume_statement_end();
         }
-        
+
         stmt_link
     }
 
     fn stmt_if(token_list: &mut TokenList) -> Link {
         // "if" を取り出し
-        if token_list.comsume_parentheses(ParenthesesKind::LeftParentheses){
+        if token_list.comsume_parentheses(ParenthesesKind::LeftParentheses) {
             // まずはelseのないif文としてASTnodeを作る
             let mut if_node = ASTNode::new_if_node();
             if_node.add_neighbor_node(AST::expr(token_list), None);
@@ -198,7 +197,7 @@ impl AST {
             if token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
                 if_node.right = AST::stmt(token_list);
                 // else文が続く場合
-                if token_list.consume_else(){
+                if token_list.consume_else() {
                     if_node.node_kind = ASTNodeKind::IfElse;
                     if_node.vec = Some(vec![AST::stmt_else(token_list)]);
                 }
@@ -225,10 +224,10 @@ impl AST {
 
     fn stmt_else(token_list: &mut TokenList) -> Link {
         AST::stmt(token_list)
-    }  
-    
+    }
+
     fn stmt_while(token_list: &mut TokenList) -> Link {
-        if token_list.comsume_parentheses(ParenthesesKind::LeftParentheses){
+        if token_list.comsume_parentheses(ParenthesesKind::LeftParentheses) {
             let mut while_node = ASTNode::new_while_node();
             while_node.add_neighbor_node(AST::expr(token_list), None);
             // ")"でクローズされているかチェック
@@ -256,10 +255,10 @@ impl AST {
     }
 
     fn stmt_for(token_list: &mut TokenList) -> Link {
-        if token_list.comsume_parentheses(ParenthesesKind::LeftParentheses){
+        if token_list.comsume_parentheses(ParenthesesKind::LeftParentheses) {
             let mut for_node = ASTNode::new_for_node();
-            let mut for_vec: Vec<Link> = vec![];    // for文用のvecを作成
-            // 初期化式
+            let mut for_vec: Vec<Link> = vec![]; // for文用のvecを作成
+                                                 // 初期化式
             if token_list.is_statement_end() {
                 token_list.pop_head();
                 for_vec.push(None);
@@ -438,14 +437,13 @@ impl AST {
 
         // 関数呼び出しの場合
         // 識別子の次が(の場合には関数呼び出しトークンとしている
-        if let Some(function_name) = token_list.consume_functioncall() {  
+        if let Some(function_name) = token_list.consume_functioncall() {
             // "(" token取り出し
             token_list.pop_head();
             let mut function_call_node = ASTNode::new_funtioncall_node(function_name);
-            let mut args_vec: Vec<Link> = vec![];   
+            let mut args_vec: Vec<Link> = vec![];
             while !token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
                 if !token_list.is_empty() {
-
                     if args_vec.len() == 6 {
                         if let Some(valid_token) = token_list.pop_head() {
                             error_exit("canoot take to much argument", valid_token.token_pos);
@@ -459,21 +457,23 @@ impl AST {
                     let primarykind = token_list.expect_primary();
                     let primary_node = ASTNode::new_primary_node(primarykind);
                     args_vec.push(Some(Box::new(primary_node)));
-                    
+
                     if !token_list.consume_commma() {
                         if token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
                             break;
                         }
 
                         if let Some(valid_token) = token_list.pop_head() {
-                            error_exit("function args must be separated by comma", valid_token.token_pos);
+                            error_exit(
+                                "function args must be separated by comma",
+                                valid_token.token_pos,
+                            );
                         } else {
                             // テキスト終端に要求エラーを立てる
                             let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
                             error_exit("function call is not closed", tail_pos);
                         }
                     }
-
                 } else {
                     // テキスト終端に要求エラーを立てる
                     let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
@@ -503,11 +503,11 @@ pub struct FunctionAST {
     pub function_info: FuntionInfo,
 }
 
-fn pop_function_info(token_list: &mut TokenList) ->  FuntionInfo {
+fn pop_function_info(token_list: &mut TokenList) -> FuntionInfo {
     if let Some(function_name) = token_list.consume_function_definition() {
         if token_list.comsume_parentheses(ParenthesesKind::LeftParentheses) {
             let mut args_count = 0;
-            loop{
+            loop {
                 if token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
                     break;
                 }
@@ -542,18 +542,20 @@ fn pop_function_info(token_list: &mut TokenList) ->  FuntionInfo {
 
 impl FunctionAST {
     fn new(token_list: &mut TokenList) -> FunctionAST {
-        let function_info: FuntionInfo  = pop_function_info(token_list);
+        let function_info: FuntionInfo = pop_function_info(token_list);
         let function_ast: AST = AST::new(token_list);
 
-
-        let fucntion_ast = FunctionAST { 
+        let fucntion_ast = FunctionAST {
             function_ast,
             function_info,
         };
 
         // 関数は複文{}なのでASTは1つなのでここには来ないはず
         if !token_list.is_empty() {
-            error_exit("some error happened", token_list.pop_head().unwrap().token_pos);
+            error_exit(
+                "some error happened",
+                token_list.pop_head().unwrap().token_pos,
+            );
         }
         fucntion_ast
     }

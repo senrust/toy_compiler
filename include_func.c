@@ -1,7 +1,7 @@
 #include <stdio.h>
 
-int echo() { 
-    printf("hello\n"); 
+int echo(int x) { 
+    printf("argument is %d\n", x); 
 }
 
 int add(int x, int y) { 

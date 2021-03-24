@@ -2,7 +2,7 @@ use super::tokenizer::OperationKind;
 use crate::ast::{ASTNode, ASTNodeKind, FunctionAST, FuntionInfo, PrimaryNodeKind, AST};
 use crate::error::error_exit;
 
-struct Instructions{
+struct Instructions {
     vec: Vec<String>,
     end_count: usize,
     else_count: usize,
@@ -11,8 +11,8 @@ struct Instructions{
 
 impl Instructions {
     fn new() -> Self {
-        Instructions{
-            vec: vec!(),
+        Instructions {
+            vec: vec![],
             end_count: 0,
             else_count: 0,
             begin_count: 0,
@@ -74,7 +74,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         } else {
             error_exit("left value is not correct", text_pos);
         }
-    } else if let ASTNodeKind::Return = node.node_kind  {
+    } else if let ASTNodeKind::Return = node.node_kind {
         let left_node = node.left.take().unwrap();
         compile_node(*left_node, instructions);
         instructions.push(format!("    pop rax"));
@@ -91,7 +91,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         instructions.push(format!("    je .Lend{}", instructions.end_count));
         compile_node(*instruction_node, instructions);
         instructions.push(format!(".Lend{}:", instructions.end_count));
-        instructions.end_count_up(); 
+        instructions.end_count_up();
         return;
     } else if let ASTNodeKind::IfElse = node.node_kind {
         let condition_node = node.left.take().unwrap();
@@ -110,8 +110,8 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         let else_instruction_node = else_vec[0].take().unwrap();
         compile_node(*else_instruction_node, instructions);
         instructions.push(format!(".Lend{}:", instructions.end_count));
-        instructions.end_count_up(); 
-        instructions.else_count_up(); 
+        instructions.end_count_up();
+        instructions.else_count_up();
         return;
     } else if let ASTNodeKind::While = node.node_kind {
         let condition_node = node.left.take().unwrap();
@@ -124,7 +124,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         compile_node(*instruction_node, instructions);
         instructions.push(format!("    jmp .Lbegin{}", instructions.begin_count));
         instructions.push(format!(".Lend{}:", instructions.end_count));
-        instructions.end_count_up(); 
+        instructions.end_count_up();
         instructions.begin_count_up();
         return;
     } else if let ASTNodeKind::For = node.node_kind {
@@ -147,7 +147,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         instructions.push(format!("    pop rax"));
         instructions.push(format!("    jmp .Lbegin{}", instructions.begin_count));
         instructions.push(format!(".Lend{}:", instructions.end_count));
-        instructions.end_count_up(); 
+        instructions.end_count_up();
         instructions.begin_count_up();
         return;
     } else if let ASTNodeKind::MultStmt = node.node_kind {
@@ -159,7 +159,7 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
                 compile_node(*node, instructions);
                 instructions.push(format!("    pop rax"));
             }
-            // 文終了時にpop raxを実行するので, 
+            // 文終了時にpop raxを実行するので,
             // 複文の最後のpop raxは取り除く
             instructions.pop();
         }
@@ -274,10 +274,9 @@ fn compile_function_prologue(function_info: FuntionInfo, instructions: &mut Inst
     // スタックサイズは引数なので, 引数分引いた分スタックを下げる
     let local_variable_size = function_info.local_stack_size;
 
-
-    if local_variable_size % 16 == 0 &&  local_variable_size != 0 {
+    if local_variable_size % 16 == 0 && local_variable_size != 0 {
         instructions.push(format!("    sub rsp, {}", local_variable_size));
-    } else if local_variable_size  % 16 != 0 &&  local_variable_size != 0 {
+    } else if local_variable_size % 16 != 0 && local_variable_size != 0 {
         instructions.push(format!("    sub rsp, {}", local_variable_size + 8));
     }
 }
@@ -288,7 +287,6 @@ fn compile_function_epilogue(instructions: &mut Instructions) {
     instructions.push(format!("    pop rbp"));
     instructions.push(format!("    ret"));
 }
-
 
 // function_astからアセンブラを出力する
 pub fn compile_function_ast(function_ast: FunctionAST) -> Vec<String> {
