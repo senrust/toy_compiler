@@ -106,6 +106,7 @@ pub enum TokenKind {
     Else,
     For,
     StateMentEnd,
+    Reference,
     InvalidToken,
 }
 
@@ -157,11 +158,41 @@ impl TokenList {
         self.head.is_none()
     }
 
+    pub fn is_operation(&mut self, op: OperationKind) -> bool {
+        match self.peek_head() {
+            Some(token) => {
+                if token.token_kind == TokenKind::Operation(op) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            None => {
+                return false;
+            }
+        }
+    }
+
     pub fn consume_operation(&mut self, op: OperationKind) -> bool {
         match self.peek_head() {
             Some(token) => {
                 if token.token_kind == TokenKind::Operation(op) {
                     self.pop_head();
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+            None => {
+                return false;
+            }
+        }
+    }
+
+    pub fn is_reference(&mut self) -> bool {
+        match self.peek_head() {
+            Some(token) => {
+                if token.token_kind == TokenKind::Reference {
                     return true;
                 } else {
                     return false;
@@ -474,6 +505,7 @@ fn is_operational_char(ch: &char) -> bool {
         || *ch == '\n'
         || *ch == ','
         || *ch == ' '
+        || *ch == '&'
     {
         true
     } else {
@@ -548,6 +580,8 @@ fn pop_operation(char_queue: &mut VecDeque<char>) -> TokenKind {
         TokenKind::Operation(OperationKind::Mul)
     } else if op_string == "/" {
         TokenKind::Operation(OperationKind::Div)
+    } else if op_string == "&" {
+        TokenKind::Reference
     } else {
         TokenKind::InvalidToken
     }

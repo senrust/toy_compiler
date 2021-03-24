@@ -1,11 +1,13 @@
 use super::error::{error_exit, invalid_token_exit};
 use super::tokenizer::{BracesKind, OperationKind, ParenthesesKind, TokenList, PROGRAM_TEXT};
 
+#[derive(PartialEq, Eq)]
 pub enum PrimaryNodeKind {
     Number(i32),
     LocalVariable(usize), // (offset from bsp)
 }
 
+#[derive(PartialEq, Eq)]
 pub enum ASTNodeKind {
     Operation(OperationKind),
     Primary(PrimaryNodeKind),
@@ -17,6 +19,8 @@ pub enum ASTNodeKind {
     For,
     MultStmt, // Mult statement, 複文
     FunctionCall(String),
+    Reference(usize), // &の文字列中の位置 右辺が変数でない場合にエラーにする
+    Dereference(usize),
 }
 
 pub struct ASTNode {
@@ -30,6 +34,24 @@ impl ASTNode {
     fn new_primary_node(primary_node: PrimaryNodeKind) -> ASTNode {
         ASTNode {
             node_kind: ASTNodeKind::Primary(primary_node),
+            left: None,
+            right: None,
+            vec: None,
+        }
+    }
+
+    fn new_reference_node(node_pos: usize) -> ASTNode {
+        ASTNode {
+            node_kind: ASTNodeKind::Reference(node_pos),
+            left: None,
+            right: None,
+            vec: None,
+        }
+    }
+
+    fn new_deference_node(node_pos: usize) -> ASTNode {
+        ASTNode {
+            node_kind: ASTNodeKind::Dereference(node_pos),
             left: None,
             right: None,
             vec: None,
@@ -414,12 +436,25 @@ impl AST {
     fn urany(token_list: &mut TokenList) -> Link {
         if token_list.consume_operation(OperationKind::Add) {
             return AST::primary(token_list);
-        }
-        if token_list.consume_operation(OperationKind::Sub) {
+        } else if token_list.consume_operation(OperationKind::Sub) {
             let mut unary_node = ASTNode::new_operand_node(OperationKind::Sub);
             let zoro_node = ASTNode::new_primary_node(PrimaryNodeKind::Number(0));
             unary_node.add_neighbor_node(Some(Box::new(zoro_node)), AST::primary(token_list));
             return Some(Box::new(unary_node));
+        } else if token_list.is_operation(OperationKind::Mul) {
+            // アドレスは対象が変数でないかのチェックをASTのコンパイル時に行うので,
+            // tokenの位置を取得する必要がある
+            let dereference_token = token_list.pop_head().unwrap();
+            let mut dereference_node = ASTNode::new_deference_node(dereference_token.token_pos);
+            dereference_node.add_neighbor_node(AST::urany(token_list), None);
+            return Some(Box::new(dereference_node));
+        } else if token_list.is_reference() {
+            // アドレスは対象が変数でないかのチェックをASTのコンパイル時に行うので,
+            // tokenの位置を取得する必要がある
+            let reference_token = token_list.pop_head().unwrap();
+            let mut reference_node = ASTNode::new_reference_node(reference_token.token_pos);
+            reference_node.add_neighbor_node(AST::urany(token_list), None);
+            return Some(Box::new(reference_node));
         }
         return AST::primary(token_list);
     }

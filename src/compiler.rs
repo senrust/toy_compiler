@@ -1,6 +1,6 @@
 use super::tokenizer::OperationKind;
 use crate::ast::{ASTNode, ASTNodeKind, FunctionAST, FuntionInfo, PrimaryNodeKind, AST};
-use crate::error::error_exit;
+use crate::error::{error_exit};
 
 struct Instructions {
     vec: Vec<String>,
@@ -47,6 +47,23 @@ fn push_local_variable_address(offset: usize, instructions: &mut Instructions) {
     instructions.push(format!("    push rax"));
 }
 
+fn push_left_value_adress(mut node: ASTNode, instructions: &mut Instructions, dereference_pos: usize){
+    let pointer_to_node = node.left.take().unwrap();
+    if let  ASTNodeKind::Primary(PrimaryNodeKind::LocalVariable(offset)) = pointer_to_node.node_kind  {
+        // 変数値
+        push_local_variable_address(offset, instructions);
+            
+    } else if let ASTNodeKind::Dereference(text_pos) = pointer_to_node.node_kind {
+        push_left_value_adress(*pointer_to_node, instructions, text_pos);
+    } else {
+        error_exit("left value cannot do operation", dereference_pos);
+    }
+    instructions.push(format!("    pop rax"));
+    instructions.push(format!("    mov rax, [rax]"));
+    instructions.push(format!("    push rax"));
+
+}
+
 fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
     if let ASTNodeKind::Primary(PrimaryNodeKind::Number(num)) = node.node_kind {
         let instruction = format!("    push {}", num);
@@ -65,6 +82,14 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
         let right_node = node.right.take().unwrap();
         if let ASTNodeKind::Primary(PrimaryNodeKind::LocalVariable(offset)) = left_node.node_kind {
             push_local_variable_address(offset, instructions);
+            compile_node(*right_node, instructions);
+            instructions.push(format!("    pop rdi"));
+            instructions.push(format!("    pop rax"));
+            instructions.push(format!("    mov [rax], rdi"));
+            instructions.push(format!("    push rdi"));
+            return;
+        } else if let ASTNodeKind::Dereference(text_pos) = left_node.node_kind {
+            push_left_value_adress(*left_node, instructions, text_pos);
             compile_node(*right_node, instructions);
             instructions.push(format!("    pop rdi"));
             instructions.push(format!("    pop rax"));
@@ -183,6 +208,24 @@ fn compile_node(mut node: ASTNode, instructions: &mut Instructions) {
             }
         }
         instructions.push(format!("    call {}", function_name));
+        instructions.push(format!("    push rax"));
+        return;
+    } else if let ASTNodeKind::Reference(text_pos) = node.node_kind {
+        //  &の対象が変数であること
+        // 渡されたastは正しいのでunwrapしても問題ない
+        let variable_node = node.left.take().unwrap();
+        if let ASTNodeKind::Primary(PrimaryNodeKind::LocalVariable(offset)) = variable_node.node_kind {
+            push_local_variable_address(offset, instructions);
+            return;
+        } else {
+            error_exit("& operarand must be for variable", text_pos);
+        }
+    }  else if let ASTNodeKind::Dereference(_text_pos) = node.node_kind {
+        // ここの*は値であれば良い
+        let variable_node = node.left.take().unwrap();
+        compile_node(*variable_node, instructions);
+        instructions.push(format!("    pop rax"));
+        instructions.push(format!("    mov rax, [rax]"));
         instructions.push(format!("    push rax"));
         return;
     }
