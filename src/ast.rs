@@ -546,7 +546,7 @@ fn pop_function_info(token_list: &mut TokenList) -> FuntionInfo {
                 if token_list.comsume_parentheses(ParenthesesKind::RightParentheses) {
                     break;
                 }
-                token_list.expect_variable();
+                token_list.expect_variable_definition();
                 args_count += 1;
                 if args_count == 7 {
                     invalid_token_exit("too many argument", token_list);

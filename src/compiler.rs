@@ -292,7 +292,7 @@ fn compile_ast(mut ast: AST, instructions: &mut Instructions) {
     }
 }
 
-fn compile_function_prologue(function_info: FuntionInfo, instructions: &mut Instructions) {
+fn compile_function_prologue(function_info: &FuntionInfo, instructions: &mut Instructions) {
     instructions.push(format!(""));
     instructions.push(format!("{}:", function_info.function_name));
     instructions.push(format!("    push rbp"));
@@ -334,7 +334,7 @@ fn compile_function_epilogue(instructions: &mut Instructions) {
 // function_astからアセンブラを出力する
 pub fn compile_function_ast(function_ast: FunctionAST) -> Vec<String> {
     let mut instructions = Instructions::new();
-    compile_function_prologue(function_ast.function_info, &mut instructions);
+    compile_function_prologue(&function_ast.function_info, &mut instructions);
     compile_ast(function_ast.function_ast, &mut instructions);
     compile_function_epilogue(&mut instructions);
     instructions.vec

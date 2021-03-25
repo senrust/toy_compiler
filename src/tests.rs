@@ -60,12 +60,4 @@ mod tests {
             panic!();
         }
     }
-
-    #[test]
-    fn assembley_test() {
-        use crate::output_asembly;
-        use std::fs;
-        let input_program = fs::read_to_string("./test/ast_test.txt").unwrap();
-        output_asembly(&input_program);
-    }
 }

@@ -96,7 +96,7 @@ pub enum TokenKind {
     Parentheses(ParenthesesKind),
     Braces(BracesKind),
     Comma,
-    LocalVariableDefinition,
+    LocalVariableDefinition(usize),
     LocalVariable(usize),
     FucntionDefinition(String),
     FucntionCall(String),
@@ -451,12 +451,12 @@ impl TokenList {
         }
     }
 
-    pub fn expect_variable(&mut self) -> PrimaryNodeKind {
+    pub fn expect_variable_definition(&mut self) -> PrimaryNodeKind {
         let token = self.pop_head();
         let error_text = "expect variable token";
         match token {
             Some(valid_token) => match valid_token.token_kind {
-                TokenKind::LocalVariable(offset) => {
+                TokenKind::LocalVariableDefinition(offset) => {
                     return PrimaryNodeKind::LocalVariable(offset);
                 }
                 _ => {
@@ -612,6 +612,7 @@ fn pop_identifier(char_queue: &mut VecDeque<char>,) -> String {
 fn pop_identifier_token(
     char_queue: &mut VecDeque<char>,
     local_variable_set: &mut Vec<String>,
+    tokenizer_info: &mut TokenizerInfo
 ) -> TokenKind {
 
     let text_len = PROGRAM_TEXT.get().unwrap().get_tail_pos();
@@ -640,10 +641,16 @@ fn pop_identifier_token(
         }
 
         let ch =char_queue.front().unwrap();
-        if *ch != ';' {
-            error_exit("variable definition needs ';'", text_len - char_queue.len());
+        if tokenizer_info.state == TokenizerState::FucntionDefinition {
+            if !(*ch == ')'  || *ch == ',') {
+                error_exit("variable definition needs ','", text_len - char_queue.len());
+            }
         } else {
-            char_queue.pop_front();
+            if *ch != ';' {
+                error_exit("variable definition needs ';'", text_len - char_queue.len());
+            } else {
+                char_queue.pop_front();
+            }
         }
         is_variable_definition = true;
     }
@@ -684,7 +691,7 @@ fn pop_identifier_token(
     }
     if is_variable_definition {
         local_variable_set.push(identifier);
-        return TokenKind::LocalVariableDefinition;
+        return TokenKind::LocalVariableDefinition(local_variable_set.len() * 8);
     } else {
         error_exit(&format!("undefined variable {}", identifier), indentifier_head_pos);
     }
@@ -813,6 +820,7 @@ fn skip_input(char_queue: &mut VecDeque<char>) {
 enum TokenizerState {
     Global,
     Local,
+    FucntionDefinition,
 }
 
 struct TokenizerInfo {
@@ -879,7 +887,7 @@ pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
                 // ロカール変数配列初期化
                 // 引数もローカル変数として扱うため, ここで初期化する
                 local_varibales = vec![];
-                tokenizer_info.state = TokenizerState::Local;
+                tokenizer_info.state = TokenizerState::FucntionDefinition;
             } else {
                 error_exit(
                     "only function definition is allowed in global area",
@@ -898,6 +906,11 @@ pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
             }
         } else if ch.is_ascii_punctuation() {
             new_token.token_kind = pop_operation(&mut char_queue);
+
+            if new_token.token_kind == TokenKind::Parentheses(ParenthesesKind::RightParentheses) 
+               && tokenizer_info.state == TokenizerState::FucntionDefinition {
+                tokenizer_info.state = TokenizerState::Local;
+            }
 
             // {}でネストレベルを判定
             if new_token.token_kind == TokenKind::Braces(BracesKind::LeftBraces) {
@@ -923,13 +936,17 @@ pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
                 }
             }
         } else if ch.is_ascii_alphabetic() {
-            new_token.token_kind = pop_identifier_token(&mut char_queue, &mut local_varibales);
+            new_token.token_kind = pop_identifier_token(&mut char_queue, &mut local_varibales, &mut tokenizer_info);
         }
 
         if new_token.token_kind == TokenKind::InvalidToken {
             error_exit("unsupported token", new_token.token_pos);
-        } else if new_token.token_kind == TokenKind::LocalVariableDefinition {
-            continue;
+        } 
+
+        if let TokenKind::LocalVariableDefinition(_) = new_token.token_kind {
+            if tokenizer_info.state != TokenizerState::FucntionDefinition {
+                continue;
+            }
         }
 
         match current_token {
