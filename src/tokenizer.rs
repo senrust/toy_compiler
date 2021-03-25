@@ -96,6 +96,7 @@ pub enum TokenKind {
     Parentheses(ParenthesesKind),
     Braces(BracesKind),
     Comma,
+    LocalVariableDefinition,
     LocalVariable(usize),
     FucntionDefinition(String),
     FucntionCall(String),
@@ -587,12 +588,9 @@ fn pop_operation(char_queue: &mut VecDeque<char>) -> TokenKind {
     }
 }
 
-fn pop_identifier_token(
-    char_queue: &mut VecDeque<char>,
-    local_variable_set: &mut Vec<String>,
-) -> TokenKind {
+fn pop_identifier(char_queue: &mut VecDeque<char>,) -> String {
     let ch = char_queue.pop_front().unwrap();
-    let mut local_varibale = format!("{}", ch);
+    let mut identifier = format!("{}", ch);
 
     // ascii, _, 0~9 が続くうちは取り出す
     loop {
@@ -600,7 +598,7 @@ fn pop_identifier_token(
             if next_ch_ref.is_ascii_alphabetic() || *next_ch_ref == '_' || next_ch_ref.is_digit(10)
             {
                 let next_ch = char_queue.pop_front().unwrap();
-                local_varibale.push(next_ch);
+                identifier.push(next_ch);
             } else {
                 break;
             }
@@ -608,44 +606,100 @@ fn pop_identifier_token(
             break;
         }
     }
+    identifier
+}
 
-    if local_varibale == "return" {
+fn pop_identifier_token(
+    char_queue: &mut VecDeque<char>,
+    local_variable_set: &mut Vec<String>,
+) -> TokenKind {
+
+    let text_len = PROGRAM_TEXT.get().unwrap().get_tail_pos();
+    let mut indentifier_head_pos = text_len - char_queue.len();
+
+    let mut identifier = pop_identifier(char_queue);
+    let mut is_variable_definition = false;
+
+    if identifier == "int" {
+        skip_input(char_queue);
+        if char_queue.is_empty() {
+            error_exit("variable definition is not correct", text_len);
+        }
+
+        let ch =char_queue.front().unwrap();
+        if !ch.is_ascii_alphabetic() {
+            return TokenKind::InvalidToken;
+        }
+
+        indentifier_head_pos = text_len - char_queue.len();
+
+        identifier = pop_identifier(char_queue);
+        skip_input(char_queue);
+        if char_queue.is_empty() {
+            error_exit("variable definition is not correct", text_len);
+        }
+
+        let ch =char_queue.front().unwrap();
+        if *ch != ';' {
+            error_exit("variable definition needs ';'", text_len - char_queue.len());
+        } else {
+            char_queue.pop_front();
+        }
+        is_variable_definition = true;
+    }
+
+    if identifier == "int" {
+        error_exit("cannot use int for variable name", indentifier_head_pos);
+    }
+
+    if identifier == "return" {
         return TokenKind::Return;
-    } else if local_varibale == "while" {
+    } else if identifier == "while" {
         return TokenKind::While;
-    } else if local_varibale == "if" {
+    } else if identifier == "if" {
         return TokenKind::If;
-    } else if local_varibale == "else" {
+    } else if identifier == "else" {
         return TokenKind::Else;
-    } else if local_varibale == "for" {
+    } else if identifier == "for" {
         return TokenKind::For;
     }
 
-    for ch in char_queue.iter() {
-        if *ch == ' ' {
-            continue;
-        }
-        if *ch == '(' {
-            return TokenKind::FucntionCall(local_varibale);
-        } else {
-            break;
-        }
+    skip_input(char_queue);
+    if char_queue.is_empty() {
+        error_exit("program is not correct", text_len);
+    }
+
+    let ch = char_queue.front().unwrap();
+    if *ch == '(' {
+        return TokenKind::FucntionCall(identifier);
     }
 
     for (index, exist_variable) in local_variable_set.iter().enumerate() {
-        if *exist_variable == local_varibale {
+        if *exist_variable == identifier {
+            if is_variable_definition {
+                error_exit(&format!("variable {} is already defined", identifier), indentifier_head_pos);
+            }
             return TokenKind::LocalVariable((index + 1) * 8);
         }
     }
-    local_variable_set.push(local_varibale);
-
-    TokenKind::LocalVariable(local_variable_set.len() * 8)
+    if is_variable_definition {
+        local_variable_set.push(identifier);
+        return TokenKind::LocalVariableDefinition;
+    } else {
+        error_exit(&format!("undefined variable {}", identifier), indentifier_head_pos);
+    }
 }
 
 fn pop_function_definition_token(char_queue: &mut VecDeque<char>) -> Result<String, String> {
-    let ch = char_queue.pop_front().unwrap();
-    let mut function_name = format!("{}", ch);
+    let identifier = pop_identifier(char_queue);
 
+    if identifier != "int" {
+        return Err(format!("function must return int"));
+    }
+
+    skip_input(char_queue);
+
+    let mut function_name = format!("");
     // ascii, _, 0~9 が続くうちは取り出す
     loop {
         if let Some(next_ch_ref) = char_queue.front() {
@@ -671,7 +725,9 @@ fn pop_function_definition_token(char_queue: &mut VecDeque<char>) -> Result<Stri
         return Err(format!("else is invalid function name"));
     } else if function_name == "for" {
         return Err(format!("for is invalid function name"));
-    }
+    } else if function_name == "int" {
+        return Err(format!("int is invalid function name"));
+    } 
 
     return Ok(function_name);
 }
@@ -726,6 +782,33 @@ fn skip_comment(char_queue: &mut VecDeque<char>) -> Result<(), ()> {
     Ok(())
 }
 
+fn skip_input(char_queue: &mut VecDeque<char>) {
+    loop {
+        match skip_comment(char_queue) {
+            Ok(_) => {
+                if char_queue.is_empty() {
+                    break;
+                }
+            }
+            // コメントが閉じられていない場合
+            Err(_) => {
+                // テキスト終端に要求エラーを立てる
+                let tail_pos = PROGRAM_TEXT.get().unwrap().get_tail_pos();
+                error_exit("parenthes is not closed", tail_pos);
+            }
+        }
+
+        let ch = char_queue.front().unwrap();
+
+        if *ch == ' ' || *ch == '\n' {
+            char_queue.pop_front();
+            continue;
+        } else {
+            break;
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 enum TokenizerState {
     Global,
@@ -772,28 +855,16 @@ pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
     let mut tokenizer_info = TokenizerInfo::new();
 
     while !char_queue.is_empty() {
-        match skip_comment(&mut char_queue) {
-            Ok(_) => {
-                if char_queue.is_empty() {
-                    break;
-                }
-            }
-            // コメントが閉じられていない場合
-            Err(_) => {
-                error_exit("comment is unclosed", text_len - 1);
-            }
-        }
-
-        let ch = char_queue.front().unwrap();
-
-        if *ch == ' ' || *ch == '\n' {
-            char_queue.pop_front();
-            continue;
+        skip_input(&mut char_queue);
+        if char_queue.is_empty() {
+            break;
         }
 
         // 解析トークンの位置はテキストの長さ-未処理文字数で求まる
         let token_pos = text_len - char_queue.len();
         let mut new_token = Token::new(token_pos);
+
+        let ch = char_queue.front().unwrap();
 
         if tokenizer_info.state == TokenizerState::Global {
             if ch.is_ascii_alphabetic() {
@@ -857,6 +928,8 @@ pub fn text_tokenizer(text: &str) -> Vec<TokenList> {
 
         if new_token.token_kind == TokenKind::InvalidToken {
             error_exit("unsupported token", new_token.token_pos);
+        } else if new_token.token_kind == TokenKind::LocalVariableDefinition {
+            continue;
         }
 
         match current_token {

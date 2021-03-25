@@ -62,11 +62,10 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(target_arch = "arm"))]
     fn assembley_test() {
         use crate::output_asembly;
         use std::fs;
-        let input_program = fs::read_to_string("./test/binary_test.txt").unwrap();
+        let input_program = fs::read_to_string("./test/ast_test.txt").unwrap();
         output_asembly(&input_program);
     }
 }
